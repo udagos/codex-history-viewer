@@ -16,6 +16,7 @@ Notes:
 | Refresh Status | `codexHistoryViewer.refreshStatusPane` | Refreshes only the Status view. |
 | Open Settings | `codexHistoryViewer.openSettings` | Opens extension settings in the VS Code Settings UI. |
 | Rebuild Cache | `codexHistoryViewer.rebuildCache` | Rebuilds the local session cache/index from source files. |
+| Rebuild Search Index | `codexHistoryViewer.rebuildSearchIndex` | Rebuilds only the local search index from source files. |
 | Cleanup Missing Pins | `codexHistoryViewer.cleanupMissingPins` | Removes pinned entries whose source files no longer exist. |
 | Debug Info (Copy) | `codexHistoryViewer.debugInfo` | Copies runtime diagnostics and state summary to the clipboard. |
 | Undo Last Action | `codexHistoryViewer.undoLastAction` | Reverts the latest undoable operation. |
@@ -62,6 +63,8 @@ Notes:
 | Pin | `codexHistoryViewer.pinSession` | Pins selected sessions for quick access. |
 | Unpin | `codexHistoryViewer.unpinSession` | Removes selected sessions from Pinned. |
 | Delete | `codexHistoryViewer.deleteSessions` | Deletes selected session files (trash-first behavior by default). |
+| Set Custom Title... | `codexHistoryViewer.setCustomTitle` | Sets an extension-local display title for the selected session. |
+| Clear Custom Title | `codexHistoryViewer.clearCustomTitle` | Removes the extension-local custom title from the selected session. |
 | Edit Session Tags/Note... | `codexHistoryViewer.editSessionAnnotation` | Edits tags and note annotation for a selected session. |
 
 ## Tag Operations

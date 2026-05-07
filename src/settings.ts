@@ -5,6 +5,8 @@ import type { ToolDisplayMode } from "./tools/toolTypes";
 
 export type HistoryDateBasis = "started" | "lastActivity";
 export type HistoryTitleSource = "generated" | "nativeWhenAvailable";
+export type PreviewTooltipMode = "full" | "compact" | "titleOnly";
+export type SearchIndexToolContent = "conversationOnly" | "toolCalls" | "toolCallsAndOutputs";
 export type LongMessageFoldingMode = "off" | "auto" | "always";
 export type ChatOpenPosition = "top" | "lastMessage";
 export type ImageThumbnailSize = "small" | "medium" | "large";
@@ -28,8 +30,10 @@ export interface CodexHistoryViewerConfig {
   enableClaudeSource: boolean;
   previewOpenOnSelection: boolean;
   previewMaxMessages: number;
+  previewTooltipMode: PreviewTooltipMode;
   searchMaxResults: number;
   searchCaseSensitive: boolean;
+  searchIndexToolContent: SearchIndexToolContent;
   deleteUseTrash: boolean;
   resumeOpenTarget: "sidebar" | "panel";
   historyDateBasis: HistoryDateBasis;
@@ -75,6 +79,20 @@ function parseImageThumbnailSize(value: unknown): ImageThumbnailSize {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "small" || normalized === "large") return normalized;
   return "medium";
+}
+
+function parsePreviewTooltipMode(value: unknown): PreviewTooltipMode {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "compact") return "compact";
+  if (normalized === "titleonly") return "titleOnly";
+  return "full";
+}
+
+function parseSearchIndexToolContent(value: unknown): SearchIndexToolContent {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "conversationonly") return "conversationOnly";
+  if (normalized === "toolcalls") return "toolCalls";
+  return "toolCallsAndOutputs";
 }
 
 function parseBoundedNumber(value: unknown, fallback: number, min: number, max: number): number {
@@ -127,8 +145,12 @@ export function getConfig(): CodexHistoryViewerConfig {
     enableClaudeSource: enabledSources.enableClaudeSource,
     previewOpenOnSelection: cfg.get<boolean>("preview.openOnSelection") ?? true,
     previewMaxMessages: cfg.get<number>("preview.maxMessages") ?? 6,
+    previewTooltipMode: parsePreviewTooltipMode(cfg.get<string>("preview.tooltipMode") ?? "full"),
     searchMaxResults: cfg.get<number>("search.maxResults") ?? 500,
     searchCaseSensitive: cfg.get<boolean>("search.caseSensitive") ?? false,
+    searchIndexToolContent: parseSearchIndexToolContent(
+      cfg.get<string>("search.indexToolContent") ?? "toolCallsAndOutputs",
+    ),
     deleteUseTrash: cfg.get<boolean>("delete.useTrash") ?? true,
     resumeOpenTarget,
     historyDateBasis,

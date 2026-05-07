@@ -144,6 +144,7 @@ export interface StatusSnapshot {
   codexSessionsRoot: string;
   claudeSessionsRoot: string;
   lastRefreshAt: number | null;
+  extensionVersion: string;
 }
 
 // Status pane: shows counts and filter state.
@@ -254,6 +255,10 @@ export class StatusTreeDataProvider implements vscode.TreeDataProvider<UtilityNo
         ),
       );
     }
+
+    items.push(
+      makeInfo("status.version", t("status.label.version"), s.extensionVersion, new vscode.ThemeIcon("info")),
+    );
 
     return items;
   }

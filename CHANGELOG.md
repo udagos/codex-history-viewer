@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-05-07
+
+### Added
+
+- Added extension-local custom titles for Codex and Claude sessions.
+- Added session tree tooltip modes (`full`, `compact`, `titleOnly`) so users can choose between detailed metadata and a one-line title-only tooltip.
+- Added `codexHistoryViewer.search.indexToolContent` to control whether the search index stores conversation text only, tool calls, or tool calls plus tool outputs.
+
 ## [1.4.3] - 2026-04-30
 
 ### Added

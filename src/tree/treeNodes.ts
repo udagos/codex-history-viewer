@@ -81,7 +81,7 @@ export class PinnedDropHintNode {
 export interface SearchHit {
   messageIndex: number; // 1-based (display order for user/assistant)
   role: "user" | "assistant" | "developer" | "tool";
-  source?: "message" | "toolArguments" | "toolOutput" | "annotationTag" | "annotationNote";
+  source?: "message" | "toolArguments" | "toolOutput" | "annotationTag" | "annotationNote" | "customTitle" | "originalTitle";
   snippet: string;
 }
 
@@ -155,9 +155,12 @@ export function toTreeItemContextValue(node: TreeNode): string {
     case "day":
       return "codexHistoryViewer.day";
     case "session":
-      return node.pinned
-        ? `codexHistoryViewer.sessionPinned.${node.session.source}`
-        : `codexHistoryViewer.session.${node.session.source}`;
+      return withCustomTitleMarker(
+        node.pinned
+          ? `codexHistoryViewer.sessionPinned.${node.session.source}`
+          : `codexHistoryViewer.session.${node.session.source}`,
+        node.session,
+      );
     case "missingPinned":
       return "codexHistoryViewer.sessionMissing";
     case "pinnedDropHint":
@@ -165,9 +168,9 @@ export function toTreeItemContextValue(node: TreeNode): string {
     case "searchRoot":
       return "codexHistoryViewer.searchRoot";
     case "searchSession":
-      return `codexHistoryViewer.searchSession.${node.session.source}`;
+      return withCustomTitleMarker(`codexHistoryViewer.searchSession.${node.session.source}`, node.session);
     case "searchHit":
-      return `codexHistoryViewer.searchHit.${node.session.source}`;
+      return withCustomTitleMarker(`codexHistoryViewer.searchHit.${node.session.source}`, node.session);
     case "searchHelp":
       return "codexHistoryViewer.searchHelp";
     case "historyEmpty":
@@ -175,6 +178,10 @@ export function toTreeItemContextValue(node: TreeNode): string {
     default:
       return "codexHistoryViewer.unknown";
   }
+}
+
+function withCustomTitleMarker(base: string, session: SessionSummary): string {
+  return session.customTitle ? `${base}.customTitle` : base;
 }
 
 export function missingPinnedLabel(): string {

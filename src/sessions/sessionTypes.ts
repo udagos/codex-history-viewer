@@ -38,6 +38,8 @@ export interface SessionSummary {
   timeLabel: string;
   snippet: string;
   nativeTitle?: string;
+  originalTitle?: string;
+  customTitle?: string;
   displayTitle: string;
   cwdShort: string;
   previewMessages: PreviewMessage[];

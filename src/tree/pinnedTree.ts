@@ -16,7 +16,7 @@ import {
 import { getConfig } from "../settings";
 import { truncateByDisplayWidth } from "../utils/textUtils";
 import { t } from "../i18n";
-import { appendSessionTooltipDateLines } from "./sessionTooltipUtils";
+import { buildSessionHoverTooltip } from "./sessionTooltipUtils";
 
 // Provides the pinned sessions view.
 export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -113,25 +113,13 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
         arguments: [element],
       };
 
-      // Show a short preview in the tooltip for quicker scanning.
-      const md = new vscode.MarkdownString(undefined, true);
-      md.isTrusted = false;
-      appendSessionTooltipDateLines(md, element.session);
-      md.appendMarkdown(`Source: ${sourceName(element.session.source)}  \n`);
-      if (element.session.cwdShort) md.appendMarkdown(`${escapeForMarkdown(element.session.cwdShort)}  \n`);
-      if (annotation && annotation.tags.length > 0) {
-        md.appendMarkdown(`Tags: ${escapeForMarkdown(annotation.tags.join(", "))}  \n`);
-      }
-      if (annotation && annotation.note.length > 0) {
-        md.appendMarkdown(`Note: ${escapeForMarkdown(annotation.note)}  \n`);
-      }
-      md.appendMarkdown(`\n---\n`);
-      for (const msg of element.session.previewMessages) {
-        md.appendMarkdown(`**${msg.role}**  \n`);
-        md.appendMarkdown(`${escapeForMarkdown(msg.text)}\n\n`);
-      }
-      md.appendMarkdown(`---\n${escapeForMarkdown(t("tree.tooltip.sessionActions"))}\n`);
-      item.tooltip = md;
+      item.tooltip = buildSessionHoverTooltip({
+        session: element.session,
+        annotation: annotation ? { tags: annotation.tags, note: annotation.note } : null,
+        label: String(item.label ?? ""),
+        description: typeof item.description === "string" ? item.description : undefined,
+        mode: getConfig().previewTooltipMode,
+      });
       return item;
     }
     if (element instanceof MissingPinnedNode) {
@@ -189,11 +177,6 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
   }
 }
 
-function escapeForMarkdown(s: string): string {
-  // Minimal escaping for embedding user content into MarkdownString.
-  return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\*/g, "\\*").replace(/_/g, "\\_");
-}
-
 function buildSessionDescription(cwdShort: string, tags: readonly string[]): string {
   const parts: string[] = [];
   if (cwdShort) parts.push(cwdShort);
@@ -222,10 +205,6 @@ function normalizeTagKey(value: string): string {
 function normalizeSourceFilter(value: SessionSourceFilter): SessionSourceFilter {
   if (value === "codex" || value === "claude") return value;
   return "all";
-}
-
-function sourceName(source: SessionSource): string {
-  return source === "claude" ? "Claude" : "Codex";
 }
 
 function inferSourceFromFsPath(fsPath: string): SessionSource | null {

@@ -2,7 +2,7 @@
 
 Browse, search, organize, and resume past Codex CLI / Claude Code sessions through the official VS Code extensions.
 
-Latest release: **1.4.3** (2026-04-30).
+Latest release: **1.5.0** (2026-05-07).
 
 ![Codex History Viewer screenshot](media/screenshot.png)
 
@@ -20,7 +20,7 @@ Use it to find past prompts, reuse useful answers, inspect file changes, organiz
 - View sessions in a chat-like UI with Markdown, code highlighting, math rendering, and file-change diffs
 - Keep open chat tabs up to date with header-controlled auto-refresh modes
 - Show supported image attachments from Codex / Claude sessions, with on-demand loading, preview, and save controls
-- Organize sessions with pins, tags, notes, saved searches, and filters
+- Organize sessions with pins, tags, notes, custom titles, saved searches, and filters
 - Resume past sessions through the official Codex and Claude Code VS Code extensions
 
 ## Detailed Features
@@ -34,6 +34,8 @@ Use it to find past prompts, reuse useful answers, inspect file changes, organiz
 - One-click "Filter by Current Project" action in the History view header (toggle on/off)
 - Tag filters in **Pinned** and **Search** views (separate from History filters)
 - Session tooltips can show both **Started** and **Last activity** timestamps when they differ
+- Session tooltips can be shown as full details, compact metadata, or the title-only tree row
+- Session titles can be renamed inside this extension, with original titles available in detailed tooltips
 - Open any session in a chat-like viewer (Webview) with Markdown rendering, syntax-highlighted fenced code blocks (powered by Shiki), and toolbar quick actions for pin/unpin, Markdown transcript, prompt excerpt copy, and source-aware resume (**OpenAI Codex** for Codex sessions, **Claude Code** for Claude sessions)
 - Chat viewer renders inline and block equations with KaTeX-compatible math support
 - Chat viewer renders supported image attachments from data/local image references, loads image data on demand, and shows a clear unavailable state for unsupported, missing, remote-only, disabled, or oversized images
@@ -67,6 +69,7 @@ Use it to find past prompts, reuse useful answers, inspect file changes, organiz
 - Incremental local search index for faster repeated searches (tracks file updates/deletions and prunes stale entries)
 - Search scope follows the active History filters (date scope, project/CWD, and source)
 - Search roles filter (default: `user`/`assistant`, optional `developer`/`tool`) with configurable defaults from the Search header or Control view
+- Search index tool-content scope can be reduced from the compatibility default (`toolCallsAndOutputs`) to `toolCalls` or `conversationOnly` to shrink the local search index
 - Search rerun (current conditions), search pane reset, and saved search presets (run/save/delete)
 - Search hits include session annotations (`tag` / `note`) in addition to message/tool text
 - Advanced query syntax: `/regex/`, `re:...`, `exact:...`, and `AND` / `OR` / `NOT`
@@ -124,7 +127,9 @@ For the full command list with per-command descriptions, see:
 - `codexHistoryViewer.sources.enabled`: Enabled history sources. Default is `["codex"]`. Add `claude` to load Claude history too.
 - `codexHistoryViewer.preview.openOnSelection`: Open a preview when selecting an item
 - `codexHistoryViewer.preview.maxMessages`: Max number of user/assistant messages to include in tooltips and quick previews
+- `codexHistoryViewer.preview.tooltipMode`: How much information session tree tooltips show (`full`, `compact`, or `titleOnly`)
 - `codexHistoryViewer.search.defaultRoles`: Default roles used when running Search
+- `codexHistoryViewer.search.indexToolContent`: How much tool content the search index stores (`conversationOnly`, `toolCalls`, or `toolCallsAndOutputs`)
 - `codexHistoryViewer.search.caseSensitive`: Whether search is case-sensitive
 - `codexHistoryViewer.search.maxResults`: Max number of search hits to collect
 - `codexHistoryViewer.history.dateBasis`: Which session date the History tree and date-based search filters use (`started` or `lastActivity`)
@@ -176,10 +181,11 @@ For the full command list with per-command descriptions, see:
 - Import recursively scans the selected source folder for `.jsonl` files.
 - Import duplicate session IDs can be handled as `skip` or `overwrite` at runtime.
 
-## What's New in 1.4.3
+## What's New in 1.5.0
 
-- Added `SECURITY.md` with guidance for the `markdown-it` GHSA-38c4-r59v-3vqw / CVE-2026-2327 advisory.
-- Improved startup loading states so the History and Pinned views show localized loading rows before empty or missing-item messages.
+- Added extension-local custom titles for Codex and Claude sessions.
+- Added session tree tooltip modes: full, compact, and title-only.
+- Added a configurable search index tool-content scope.
 
 ## Changelog
 

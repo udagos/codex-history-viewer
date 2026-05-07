@@ -3,13 +3,13 @@ import type { HistoryService } from "../services/historyService";
 import type { PinStore } from "../services/pinStore";
 import type { SessionAnnotationStore } from "../services/sessionAnnotationStore";
 import { HistoryEmptyNode, SessionNode, DayNode, MonthNode, TreeNode, YearNode, toTreeItemContextValue } from "./treeNodes";
-import type { SessionSource, SessionSourceFilter, SessionSummary } from "../sessions/sessionTypes";
+import type { SessionSourceFilter, SessionSummary } from "../sessions/sessionTypes";
 import type { DateScope } from "../types/dateScope";
 import { getConfig } from "../settings";
 import { normalizeCacheKey } from "../utils/fsUtils";
 import { truncateByDisplayWidth } from "../utils/textUtils";
 import { t } from "../i18n";
-import { appendSessionTooltipDateLines } from "./sessionTooltipUtils";
+import { buildSessionHoverTooltip } from "./sessionTooltipUtils";
 
 export type HistoryViewMode = "date" | "latest";
 
@@ -235,29 +235,17 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
       arguments: [node],
     };
 
-    // Tooltip preview shows short user/assistant excerpts.
-    const md = new vscode.MarkdownString(undefined, true);
-    md.isTrusted = false;
-    appendSessionTooltipDateLines(md, session);
-    md.appendMarkdown(`Source: ${sourceName(session.source)}  \n`);
-    if (session.cwdShort) md.appendMarkdown(`${escapeForMarkdown(session.cwdShort)}  \n`);
-    if (annotation && annotation.tags.length > 0) {
-      md.appendMarkdown(`Tags: ${escapeForMarkdown(annotation.tags.join(", "))}  \n`);
-    }
-    if (annotation && annotation.note.length > 0) {
-      md.appendMarkdown(`Note: ${escapeForMarkdown(annotation.note)}  \n`);
-    }
-    md.appendMarkdown(`\n---\n`);
-    for (const msg of session.previewMessages) {
-      md.appendMarkdown(`**${msg.role}**  \n`);
-      md.appendMarkdown(`${escapeForMarkdown(msg.text)}\n\n`);
-    }
-    md.appendMarkdown(`---\n${escapeForMarkdown(t("tree.tooltip.sessionActions"))}\n`);
-    item.tooltip = md;
+    item.tooltip = buildSessionHoverTooltip({
+      session,
+      annotation: annotation ? { tags: annotation.tags, note: annotation.note } : null,
+      label,
+      description: typeof item.description === "string" ? item.description : undefined,
+      mode: getConfig().previewTooltipMode,
+    });
     return item;
   }
 
-  private resolveSourceIconPath(source: SessionSource): { light: vscode.Uri; dark: vscode.Uri } {
+  private resolveSourceIconPath(source: SessionSummary["source"]): { light: vscode.Uri; dark: vscode.Uri } {
     return source === "claude" ? this.claudeIconPath : this.codexIconPath;
   }
 
@@ -400,11 +388,6 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
   }
 }
 
-function escapeForMarkdown(s: string): string {
-  // Minimal escaping for embedding user content into MarkdownString (part of XSS mitigation).
-  return s.replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\*/g, "\\*").replace(/_/g, "\\_");
-}
-
 function buildSessionDescription(cwdShort: string, tags: readonly string[]): string {
   const parts: string[] = [];
   if (cwdShort) parts.push(cwdShort);
@@ -436,8 +419,4 @@ function normalizeSourceFilter(value: SessionSourceFilter): SessionSourceFilter 
 
 function normalizeHistoryViewMode(value: HistoryViewMode): HistoryViewMode {
   return value === "latest" ? "latest" : "date";
-}
-
-function sourceName(source: SessionSource): string {
-  return source === "claude" ? "Claude" : "Codex";
 }

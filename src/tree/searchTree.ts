@@ -2,11 +2,20 @@ import * as vscode from "vscode";
 import type { PinStore } from "../services/pinStore";
 import type { SessionAnnotationStore } from "../services/sessionAnnotationStore";
 import type { SessionSource } from "../sessions/sessionTypes";
-import { SearchHelpNode, SearchHitNode, SearchRootNode, SearchSessionNode, SessionNode, TreeNode, toTreeItemContextValue } from "./treeNodes";
+import {
+  SearchHelpNode,
+  type SearchHit,
+  SearchHitNode,
+  SearchRootNode,
+  SearchSessionNode,
+  SessionNode,
+  TreeNode,
+  toTreeItemContextValue,
+} from "./treeNodes";
 import { t } from "../i18n";
 import { getConfig } from "../settings";
 import { truncateByDisplayWidth } from "../utils/textUtils";
-import { appendSessionTooltipDateLines } from "./sessionTooltipUtils";
+import { appendSessionTooltipDateLines, appendSessionTooltipTitleLines, buildTreeRowTooltip } from "./sessionTooltipUtils";
 
 // Provides the Search view (root -> session -> hit).
 export class SearchTreeDataProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -71,8 +80,9 @@ export class SearchTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
       const annotation = this.annotationStore.get(element.session.fsPath);
       // Truncate the tree title to ~20 full-width characters (40 half-width units) and append "...".
       const shortTitle = truncateByDisplayWidth(element.session.displayTitle, 40, "...");
+      const label = `${element.session.localDate} ${element.session.timeLabel} ${shortTitle} (${element.hits.length})`;
       const item = new vscode.TreeItem(
-        `${element.session.localDate} ${element.session.timeLabel} ${shortTitle} (${element.hits.length})`,
+        label,
         vscode.TreeItemCollapsibleState.Collapsed,
       );
       item.description = buildSessionDescription(element.session.cwdShort, annotation?.tags ?? []);
@@ -88,15 +98,22 @@ export class SearchTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
         title: "",
         arguments: [node],
       };
-      item.tooltip = buildSearchSessionTooltip(element, annotation?.tags ?? [], annotation?.note ?? "");
+      item.tooltip = buildSearchSessionTooltip(
+        element,
+        annotation?.tags ?? [],
+        annotation?.note ?? "",
+        label,
+        typeof item.description === "string" ? item.description : undefined,
+      );
       return item;
     }
     if (element instanceof SearchHitNode) {
       const pinned = this.pinStore.isPinned(element.session.fsPath);
       const roleLabel = formatRoleLabel(element.hit.role, element.hit.source);
       const locationLabel = formatLocationLabel(element.hit);
+      const label = `${locationLabel} ${roleLabel}: ${element.hit.snippet}`;
       const item = new vscode.TreeItem(
-        `${locationLabel} ${roleLabel}: ${element.hit.snippet}`,
+        label,
         vscode.TreeItemCollapsibleState.None,
       );
       const node = new SessionNode(element.session, pinned);
@@ -109,7 +126,8 @@ export class SearchTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
         title: "",
         arguments: [element],
       };
-      item.tooltip = buildSearchHitTooltip(element);
+      item.tooltip =
+        getConfig().previewTooltipMode === "titleOnly" ? buildTreeRowTooltip(label) : buildSearchHitTooltip(element);
       return item;
     }
     if (element instanceof SearchHelpNode) {
@@ -160,15 +178,27 @@ function formatScopeLabel(root: SearchRootNode): string {
   return "";
 }
 
-function buildSearchSessionTooltip(node: SearchSessionNode, tags: readonly string[], note: string): vscode.MarkdownString {
+function buildSearchSessionTooltip(
+  node: SearchSessionNode,
+  tags: readonly string[],
+  note: string,
+  label: string,
+  description?: string,
+): string | vscode.MarkdownString {
+  const mode = getConfig().previewTooltipMode;
+  if (mode === "titleOnly") return buildTreeRowTooltip(label, description);
+
   const md = new vscode.MarkdownString(undefined, true);
   md.isTrusted = false;
+  appendSessionTooltipTitleLines(md, node.session);
   appendSessionTooltipDateLines(md, node.session);
   md.appendMarkdown(`Source: ${sourceName(node.session.source)}  \n`);
   if (node.session.cwdShort) md.appendMarkdown(`${escapeForMarkdown(node.session.cwdShort)}  \n`);
   if (tags.length > 0) md.appendMarkdown(`Tags: ${escapeForMarkdown(tags.join(", "))}  \n`);
   if (note.trim().length > 0) md.appendMarkdown(`Note: ${escapeForMarkdown(note.trim())}  \n`);
   md.appendMarkdown(`${escapeForMarkdown(t("tree.tooltip.searchSession", node.hits.length))}\n`);
+  if (mode === "compact") return md;
+
   md.appendMarkdown(`\n---\n`);
   const max = 5;
   for (const h of node.hits.slice(0, max)) {
@@ -199,11 +229,13 @@ function escapeForMarkdown(s: string): string {
 
 function formatRoleLabel(
   role: "user" | "assistant" | "developer" | "tool",
-  source?: "message" | "toolArguments" | "toolOutput" | "annotationTag" | "annotationNote",
+  source?: SearchHit["source"],
 ): string {
   if (role !== "tool") return role;
   if (source === "annotationTag") return "tag";
   if (source === "annotationNote") return "note";
+  if (source === "customTitle") return "custom title";
+  if (source === "originalTitle") return "original title";
   if (source === "toolArguments") return "tool.args";
   if (source === "toolOutput") return "tool.output";
   return "tool";
@@ -211,9 +243,16 @@ function formatRoleLabel(
 
 function formatLocationLabel(hit: {
   messageIndex: number;
-  source?: "message" | "toolArguments" | "toolOutput" | "annotationTag" | "annotationNote";
+  source?: SearchHit["source"];
 }): string {
-  if (hit.source === "annotationTag" || hit.source === "annotationNote") return "[meta]";
+  if (
+    hit.source === "annotationTag" ||
+    hit.source === "annotationNote" ||
+    hit.source === "customTitle" ||
+    hit.source === "originalTitle"
+  ) {
+    return "[meta]";
+  }
   if (hit.messageIndex <= 0) return "[meta]";
   return `[#${hit.messageIndex}]`;
 }
@@ -229,13 +268,13 @@ function isSameSearchHit(
   a: {
     messageIndex: number;
     role: "user" | "assistant" | "developer" | "tool";
-    source?: "message" | "toolArguments" | "toolOutput" | "annotationTag" | "annotationNote";
+    source?: SearchHit["source"];
     snippet: string;
   },
   b: {
     messageIndex: number;
     role: "user" | "assistant" | "developer" | "tool";
-    source?: "message" | "toolArguments" | "toolOutput" | "annotationTag" | "annotationNote";
+    source?: SearchHit["source"];
     snippet: string;
   },
 ): boolean {

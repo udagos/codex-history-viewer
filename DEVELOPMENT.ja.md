@@ -1,7 +1,7 @@
 # Codex History Viewer 開発ドキュメント（日本語）
 
-- 最終更新: 2026-04-30
-- 対象バージョン: 1.4.3
+- 最終更新: 2026-05-07
+- 対象バージョン: 1.5.0
 
 ## 1. 概要
 
@@ -34,6 +34,7 @@
   - `Undo Last Action`
   - `Import Sessions`
   - `Rebuild Cache`
+  - `Rebuild Search Index`
   - `Cleanup Missing Pins`
   - `Bulk Rename Tag`
   - `Bulk Delete Tags`
@@ -62,6 +63,7 @@
   - ゴミ箱件数（`undo-delete` + `deleted` の合算）
   - 現在の検索ロール / 検索タグ / 履歴絞り込み / 現在プロジェクト / 最終更新時刻
   - 有効ソースごとのセッションルート
+  - 拡張機能バージョン
   - `Current project` と `Sessions root` 系のパスは行右側のコピーアイコンからクリップボードへコピーできる
 
 ### 3.2 セッション操作
@@ -75,6 +77,7 @@
 - `Promote to Today (Copy)`: セッションを「今日」の履歴として複製する
 - `Delete`: 削除確認後に削除する
 - `Undo Last Action`: delete / pin / annotation / tag 操作などを 1 手戻す
+- `Set Custom Title` / `Clear Custom Title`: 拡張機能内だけの表示タイトルを設定 / 消去する
 - `Edit Session Annotation`: タグ / ノート編集
 - `Export Sessions`: 生 JSONL または Markdown transcript を出力
 - `Import Sessions`: フォルダ単位で `.jsonl` を再帰取り込み
@@ -93,14 +96,15 @@
   - 任意追加: `developer`, `tool`
 - 検索対象:
   - メッセージ本文
-  - ツール引数 / ツール出力
+  - ツール引数 / ツール出力（`search.indexToolContent` の設定に従う）
+  - セッションの表示タイトル / カスタムタイトル / オリジナルタイトル
   - セッション注釈のタグ / ノート
 - 保存済み検索:
   - 実行
   - 保存
   - 削除
 - `Rerun Search` は最後に使った検索条件を再実行する
-- 検索対象にはセッションタイトルは含めず、表示タイトルだけを切り替える
+- カスタムタイトルは検索対象に含め、検索結果の表示タイトルにも反映する
 
 ### 3.4 キャッシュ / インデックス / 保守
 
@@ -119,6 +123,11 @@
   - 保存先: `globalStorageUri/codex-title-cache.v1.json`
   - 用途: `session_index.jsonl` から消えた古いタイトルも引き続き表示できるようにする
   - 対象: `history.titleSource = nativeWhenAvailable` で利用する Codex のネイティブタイトル
+- カスタムタイトル:
+  - 保存先: VS Code `globalState`
+  - 用途: 本家履歴ファイルを変更せず、この拡張機能内だけで表示タイトルを上書きする
+  - 保存キーは可能な限り `source:id:<sessionId>` を使い、ID がない場合のみ `source:path:<fsPath>` にフォールバックする
+  - 最大 120 文字を超える入力はエラーにする
 - 検索インデックス:
   - 保存先: `globalStorageUri/search-index.v2.json`
   - 用途: 繰り返し検索を高速化する増分インデックス
@@ -127,12 +136,20 @@
     - `sessionsRoot`
     - `claudeSessionsRoot`
     - 有効ソース設定
+    - `search.indexToolContent`
     - 各ファイルの `mtime` / `size`
+  - `search.indexToolContent`:
+    - `conversationOnly`: 会話本文とタイトル / 注釈だけを保存する
+    - `toolCalls`: 会話本文に加えてツール名 / 引数を保存する
+    - `toolCallsAndOutputs`: 会話本文、ツール名 / 引数、ツール出力を保存する（互換性維持の既定値）
   - 保存形式: 整形なし JSON（サイズ削減のため）
 - `Rebuild Cache`:
   - 実行前に確認ダイアログを出す
   - 履歴キャッシュと検索インデックスを両方とも強制再作成する
   - 実行後は検索結果をクリアする
+- `Rebuild Search Index`:
+  - 検索インデックスだけを強制再作成する
+  - `search.indexToolContent` 変更時は通知から再作成を実行できる
 - `Delete`:
   - 既定は OS のゴミ箱 / リサイクルビンへ移動
   - 失敗時は `globalStorageUri/deleted` に退避
@@ -225,7 +242,9 @@
 - `sources.enabled`
 - `preview.openOnSelection`
 - `preview.maxMessages`
+- `preview.tooltipMode`
 - `search.defaultRoles`
+- `search.indexToolContent`
 - `search.caseSensitive`
 - `search.maxResults`
 - `history.dateBasis`
@@ -271,11 +290,16 @@
   - `HistoryIndex.byCacheKey` を構築し、`findByFsPath()` は `Map` で引く
   - 最終的な一覧はローカル日付 / 時刻順で降順ソートする
   - `history.titleSource` に応じて `displayTitle` を後段で解決する
+- `src/services/sessionTitleOverrideStore.ts`
+  - カスタムタイトルを VS Code `globalState` に保存する
+  - 本家の Codex / Claude 履歴ファイルは変更しない
+  - セッション ID が取れる場合は `source:id:<sessionId>`、取れない場合は `source:path:<fsPath>` をキーにする
 - `src/services/codexTitleStore.ts`
   - Codex の `session_index.jsonl` と `codex-title-cache.v1.json` を使ってネイティブタイトルを解決する
   - 既知セッションだけを保持しつつ、古い Codex タイトルを軽量キャッシュとして残す
 - `src/sessions/sessionTitleResolver.ts`
   - `generated` / `nativeWhenAvailable` の設定値に応じて `displayTitle` を決定する
+  - カスタムタイトルがある場合は `displayTitle` として最優先する
 
 ### 4.4 自動更新
 
@@ -304,6 +328,8 @@
   - `search-index.v2.json` を管理する
   - セッションごとに `mtime` / `size` を持ち、差分更新する
   - JSONL をストリーミングで読み、検索対象メッセージ列を構築する
+  - `search.indexToolContent` に応じてツール名 / 引数 / 出力を検索インデックスへ入れる範囲を変える
+  - 旧キャッシュに `indexToolContent` がない場合は `toolCallsAndOutputs` とみなし、既定設定のままなら不要な再作成を避ける
   - `cleanupOrphanEntries()` で現在の履歴に存在しない cacheKey を削除する
   - 実ファイルが消えている場合は `stat` 失敗時に該当エントリを削除する
   - `forceRebuild` 指定時は内部エントリをクリアして最初から作り直す
@@ -401,7 +427,7 @@
 
 - `src/settings.ts`
   - 拡張設定の読み取りヘルパーをまとめる
-  - `history.titleSource`、`autoRefresh.*`、`chat.openPosition`、`chat.toolDisplayMode`、`images.*` などの設定もここで管理する
+  - `preview.*`、`search.*`、`history.titleSource`、`autoRefresh.*`、`chat.openPosition`、`chat.toolDisplayMode`、`images.*` などの設定もここで管理する
   - 数値設定は下限 / 上限を丸め、想定外の enum 値は既定値へ戻す
 - `src/utils/dateTimeSettings.ts`
   - 日付時刻表示は VS Code Extension Host のタイムゾーンを使う
@@ -469,7 +495,16 @@ npm run package
 - `scripts.package` は `vsce package --allow-missing-repository` を実行する
 - 公開配布を前提にする場合は `repository` を正しく設定することを推奨する
 
-### 5.4 v1.4.3 リリースメモ（2026-04-30）
+### 5.4 v1.5.0 リリースメモ（2026-05-07）
+
+- Codex / Claude セッションに対して、この拡張機能内だけのカスタムタイトルを設定 / 消去できるようにした
+- カスタムタイトルは History / Pinned / チャット Webview のタイトルへ反映し、詳細ツールチップではオリジナルタイトルも確認できるようにした
+- ツリー項目ツールチップの表示量を `full` / `compact` / `titleOnly` から選べるようにした
+- 検索インデックスに保存するツール情報の範囲を `conversationOnly` / `toolCalls` / `toolCallsAndOutputs` から選べるようにした
+- `Rebuild Search Index` コマンドを追加し、検索インデックス設定変更時に再作成へ誘導するようにした
+- Status に拡張機能バージョンを表示するようにした
+
+### 5.5 v1.4.3 リリースメモ（2026-04-30）
 
 - `SECURITY.md` を追加し、`markdown-it` の GHSA-38c4-r59v-3vqw / CVE-2026-2327 について、v1.2.2 以降は `markdown-it@14.1.1` を同梱していることを明記した
 - v1.2.1 以前の古い VSIX をインストールまたは再配布しないよう、セキュリティポリシーに明記した
@@ -482,6 +517,11 @@ npm run package
 - Codex のみ有効 / Claude のみ有効 / 両方有効で履歴が正しく出る
 - `History` の日付 / プロジェクト / ソース / タグ絞り込みが期待どおり動く
 - `History` の表示モードを `日付別` / `最新順` で切り替えられ、選択中セッションの操作が維持される
+- History / Pinned の右クリックからカスタムタイトルを設定 / 消去でき、History / Pinned / チャット Webview タイトルへ反映される
+- カスタムタイトルがあるセッションの詳細ツールチップにオリジナルタイトルが表示される
+- 121 文字以上のカスタムタイトル入力ではエラーになり、保存されない
+- `preview.tooltipMode` を `full` / `compact` / `titleOnly` で切り替えると、ツリー項目ツールチップの表示量が変わる
+- `full` / `compact` のツールチップでは、カスタムタイトルがなくても履歴ペイン表示と同じタイトルが表示される
 - 履歴の自動更新設定が有効なとき、履歴ファイル作成 / 変更 / 削除で History が自動更新される
 - 履歴の自動更新設定が有効なとき、チャットヘッダーに自動更新ボタンが表示される
 - 新規チャットタブ、または再利用タブで別セッションへ切り替えたチャットタブは、自動更新が `off` で始まる
@@ -503,6 +543,8 @@ npm run package
 - 再利用タブで別セッションへ切り替えたとき、検索状態、画像プレビュー、画像データキャッシュが前セッションから残らない
 - `Search` が履歴側の絞り込み条件に追従する
 - `Search` のロール設定、保存済み検索、再検索、タグ絞り込みが動く
+- `search.indexToolContent` を `conversationOnly` / `toolCalls` / `toolCallsAndOutputs` で切り替えると、検索インデックスに入るツール情報の範囲が変わる
+- `search.indexToolContent` 変更時に検索インデックス再作成の通知が出て、`Rebuild Search Index` で検索インデックスだけ再作成できる
 - `Rebuild Cache` 実行前に確認が出て、履歴キャッシュと検索インデックスが再作成される
 - `Delete` 実行後に `undo-delete` / `deleted` の扱いと `Undo Last Action` が整合する
 - `Delete` 後に該当チャットパネルが閉じ、存在しないセッションを開こうとしてもゴーストパネルが残らない
@@ -512,6 +554,7 @@ npm run package
 - `debug.logging.enabled` を `true` にすると OutputChannel に履歴 refresh / 検索インデックスの診断ログが出る
 - 診断ログにセッションパス、セッションID、メッセージ本文が含まれない
 - Status の容量表示と件数表示が更新される
+- Status の最下部に拡張機能バージョンが表示される
 - Import / Export が両ソースで正しく動く
 - Markdown transcript にローカルパスが含まれるため、共有前確認が必要なことを案内できている
 - `history.dateBasis` を `started` / `lastActivity` で切り替えると履歴ツリーの日付グループが正しく変わる

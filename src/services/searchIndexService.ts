@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readline from "node:readline";
 import * as vscode from "vscode";
+import type { SearchIndexToolContent } from "../settings";
 import type { HistoryIndex } from "../sessions/sessionTypes";
 import { readJson, writeJson } from "../storage/jsonStorage";
 import { normalizeWhitespace } from "../utils/textUtils";
@@ -28,11 +29,20 @@ interface SearchIndexContext {
   claudeSessionsRoot: string;
   includeCodex: boolean;
   includeClaude: boolean;
+  indexToolContent: SearchIndexToolContent;
+}
+
+interface SearchIndexCacheContext {
+  codexSessionsRoot: string;
+  claudeSessionsRoot: string;
+  includeCodex: boolean;
+  includeClaude: boolean;
+  indexToolContent?: SearchIndexToolContent;
 }
 
 interface SearchIndexFileV2 {
   version: 4;
-  context: SearchIndexContext;
+  context: SearchIndexCacheContext;
   entries: Record<string, SearchIndexEntryV1>;
 }
 
@@ -46,6 +56,7 @@ export class SearchIndexService {
     claudeSessionsRoot: "",
     includeCodex: true,
     includeClaude: false,
+    indexToolContent: "toolCallsAndOutputs",
   };
   private readonly entries = new Map<string, SearchIndexEntryV1>();
 
@@ -60,6 +71,7 @@ export class SearchIndexService {
     claudeSessionsRoot: string;
     includeCodex: boolean;
     includeClaude: boolean;
+    indexToolContent: SearchIndexToolContent;
     token?: vscode.CancellationToken;
     progress?: vscode.Progress<{ message?: string; increment?: number }>;
     forceRebuild?: boolean;
@@ -79,6 +91,7 @@ export class SearchIndexService {
       claudeSessionsRoot: params.claudeSessionsRoot,
       includeCodex: params.includeCodex,
       includeClaude: params.includeClaude,
+      indexToolContent: params.indexToolContent,
     };
     await this.loadIfNeeded(context, !!forceRebuild);
 
@@ -119,7 +132,10 @@ export class SearchIndexService {
       }
 
       const buildStartedAt = nowMs();
-      const messages = await buildIndexedMessages(session.fsPath, token);
+      const messages = await buildIndexedMessages(session.fsPath, {
+        indexToolContent: context.indexToolContent,
+        token,
+      });
       buildMs += elapsedMs(buildStartedAt);
       this.entries.set(session.cacheKey, {
         fsPath: session.fsPath,
@@ -229,19 +245,20 @@ function elapsedMs(startedAt: number): number {
 
 async function buildIndexedMessages(
   fsPath: string,
-  token?: vscode.CancellationToken,
+  options: { indexToolContent: SearchIndexToolContent; token?: vscode.CancellationToken },
 ): Promise<IndexedSearchMessage[]> {
   const state: BuildState = {
     messages: [],
     messageIndex: 0,
     toolAnchorByCallId: new Map(),
+    indexToolContent: options.indexToolContent,
   };
 
   const stream = fs.createReadStream(fsPath, { encoding: "utf8" });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
   try {
     for await (const line of rl) {
-      throwIfCancelled(token);
+      throwIfCancelled(options.token);
       if (!line) continue;
 
       let obj: any;
@@ -265,6 +282,7 @@ interface BuildState {
   messages: IndexedSearchMessage[];
   messageIndex: number;
   toolAnchorByCallId: Map<string, number>;
+  indexToolContent: SearchIndexToolContent;
 }
 
 function indexCodexRecord(obj: any, state: BuildState): boolean {
@@ -293,6 +311,8 @@ function indexCodexRecord(obj: any, state: BuildState): boolean {
     const anchor = Math.max(1, state.messageIndex);
     if (callId) state.toolAnchorByCallId.set(callId, anchor);
 
+    if (!shouldIndexToolCalls(state.indexToolContent)) return true;
+
     if (name) {
       state.messages.push({
         messageIndex: anchor,
@@ -313,6 +333,8 @@ function indexCodexRecord(obj: any, state: BuildState): boolean {
   }
 
   if (payloadType === "function_call_output") {
+    if (!shouldIndexToolOutputs(state.indexToolContent)) return true;
+
     const callId = typeof obj?.payload?.call_id === "string" ? obj.payload.call_id : "";
     const outRaw = typeof obj?.payload?.output === "string" ? obj.payload.output : "";
     const outText = normalizeWhitespace(outRaw);
@@ -347,9 +369,13 @@ function indexClaudeRecord(obj: any, state: BuildState): boolean {
   }
 
   const anchor = Math.max(1, state.messageIndex);
+  const indexToolCalls = shouldIndexToolCalls(state.indexToolContent);
+  const indexToolOutputs = shouldIndexToolOutputs(state.indexToolContent);
+
   for (const toolCall of parsed.toolCalls) {
     const callId = toolCall.callId ?? "";
     if (callId) state.toolAnchorByCallId.set(callId, anchor);
+    if (!indexToolCalls) continue;
 
     const name = normalizeWhitespace(toolCall.name ?? "");
     if (name) {
@@ -371,6 +397,8 @@ function indexClaudeRecord(obj: any, state: BuildState): boolean {
       });
     }
   }
+
+  if (!indexToolOutputs) return true;
 
   for (const toolResult of parsed.toolResults) {
     const outText = normalizeWhitespace(toolResult.outputText ?? "");
@@ -525,6 +553,14 @@ function safeJsonStringify(value: unknown): string {
   }
 }
 
+function shouldIndexToolCalls(mode: SearchIndexToolContent): boolean {
+  return mode === "toolCalls" || mode === "toolCallsAndOutputs";
+}
+
+function shouldIndexToolOutputs(mode: SearchIndexToolContent): boolean {
+  return mode === "toolCallsAndOutputs";
+}
+
 function isValidCacheFile(value: unknown): value is SearchIndexFileV2 {
   if (!value || typeof value !== "object") return false;
   const obj = value as any;
@@ -534,6 +570,7 @@ function isValidCacheFile(value: unknown): value is SearchIndexFileV2 {
   if (typeof obj.context.claudeSessionsRoot !== "string") return false;
   if (typeof obj.context.includeCodex !== "boolean") return false;
   if (typeof obj.context.includeClaude !== "boolean") return false;
+  if (obj.context.indexToolContent !== undefined && !isSearchIndexToolContent(obj.context.indexToolContent)) return false;
   if (!obj.entries || typeof obj.entries !== "object") return false;
 
   for (const [key, entry] of Object.entries(obj.entries as Record<string, unknown>)) {
@@ -543,24 +580,34 @@ function isValidCacheFile(value: unknown): value is SearchIndexFileV2 {
   return true;
 }
 
-function normalizeContext(context: SearchIndexContext): SearchIndexContext {
+function normalizeContext(context: SearchIndexCacheContext): SearchIndexContext {
   return {
     codexSessionsRoot: normalizePathKey(context.codexSessionsRoot),
     claudeSessionsRoot: normalizePathKey(context.claudeSessionsRoot),
     includeCodex: !!context.includeCodex,
     includeClaude: !!context.includeClaude,
+    indexToolContent: normalizeSearchIndexToolContent(context.indexToolContent),
   };
 }
 
-function isSameContext(left: SearchIndexContext, right: SearchIndexContext): boolean {
+function isSameContext(left: SearchIndexCacheContext, right: SearchIndexCacheContext): boolean {
   const a = normalizeContext(left);
   const b = normalizeContext(right);
   return (
     a.codexSessionsRoot === b.codexSessionsRoot &&
     a.claudeSessionsRoot === b.claudeSessionsRoot &&
     a.includeCodex === b.includeCodex &&
-    a.includeClaude === b.includeClaude
+    a.includeClaude === b.includeClaude &&
+    a.indexToolContent === b.indexToolContent
   );
+}
+
+function normalizeSearchIndexToolContent(value: unknown): SearchIndexToolContent {
+  return isSearchIndexToolContent(value) ? value : "toolCallsAndOutputs";
+}
+
+function isSearchIndexToolContent(value: unknown): value is SearchIndexToolContent {
+  return value === "conversationOnly" || value === "toolCalls" || value === "toolCallsAndOutputs";
 }
 
 function normalizePathKey(fsPath: string): string {

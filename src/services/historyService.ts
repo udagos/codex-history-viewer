@@ -8,6 +8,7 @@ import { normalizeCacheKey } from "../utils/fsUtils";
 import { readJson, writeJson } from "../storage/jsonStorage";
 import { getDateTimeSettingsKey, resolveDateTimeSettings } from "../utils/dateTimeSettings";
 import { CodexTitleStore } from "./codexTitleStore";
+import type { SessionTitleOverrideStore } from "./sessionTitleOverrideStore";
 import type { DebugLogger } from "./logger";
 
 interface CacheEntryV1 {
@@ -99,13 +100,20 @@ function emptyIndex(sessionsRoot: string): HistoryIndex {
 export class HistoryService {
   private readonly globalStorageUri: vscode.Uri;
   private readonly codexTitleStore: CodexTitleStore;
+  private readonly titleOverrideStore: SessionTitleOverrideStore;
   private readonly logger?: DebugLogger;
   private config: CodexHistoryViewerConfig;
   private index: HistoryIndex;
 
-  constructor(globalStorageUri: vscode.Uri, config: CodexHistoryViewerConfig, logger?: DebugLogger) {
+  constructor(
+    globalStorageUri: vscode.Uri,
+    config: CodexHistoryViewerConfig,
+    titleOverrideStore: SessionTitleOverrideStore,
+    logger?: DebugLogger,
+  ) {
     this.globalStorageUri = globalStorageUri;
     this.codexTitleStore = new CodexTitleStore(globalStorageUri);
+    this.titleOverrideStore = titleOverrideStore;
     this.logger = logger;
     this.config = config;
     this.index = emptyIndex(config.sessionsRoot);
@@ -138,6 +146,7 @@ export class HistoryService {
       session: summary,
       titleSource: this.config.historyTitleSource,
       codexTitlesById,
+      customTitle: this.titleOverrideStore.getTitle(summary),
     });
   }
 
@@ -337,6 +346,7 @@ export class HistoryService {
       sessions: summaries,
       titleSource: this.config.historyTitleSource,
       codexTitlesById,
+      getCustomTitle: (session) => this.titleOverrideStore.getTitle(session),
     });
   }
 }

@@ -3,7 +3,7 @@
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
   "icon": "resources/extension-icon.png",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "publisher": "hiztam",
   "author": "HizTam",
   "license": "MIT",
@@ -273,6 +273,11 @@
       {
         "command": "codexHistoryViewer.rebuildCache",
         "title": "%cmd.rebuildCache%",
+        "category": "%cmd.category%"
+      },
+      {
+        "command": "codexHistoryViewer.rebuildSearchIndex",
+        "title": "%cmd.rebuildSearchIndex%",
         "category": "%cmd.category%"
       },
       {
@@ -664,6 +669,18 @@
         "icon": "$(trash)"
       },
       {
+        "command": "codexHistoryViewer.setCustomTitle",
+        "title": "%cmd.setCustomTitle%",
+        "category": "%cmd.category%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "codexHistoryViewer.clearCustomTitle",
+        "title": "%cmd.clearCustomTitle%",
+        "category": "%cmd.category%",
+        "icon": "$(clear-all)"
+      },
+      {
         "command": "codexHistoryViewer.editSessionAnnotation",
         "title": "%cmd.editSessionAnnotation%",
         "category": "%cmd.category%",
@@ -746,6 +763,26 @@
         "command": "codexHistoryViewer.ui.en.searchDeletePreset",
         "title": "Delete Saved Search...",
         "icon": "$(trash)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.ja.setCustomTitle",
+        "title": "カスタムタイトルを設定...",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.en.setCustomTitle",
+        "title": "Set Custom Title...",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.ja.clearCustomTitle",
+        "title": "カスタムタイトルを消去",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.en.clearCustomTitle",
+        "title": "Clear Custom Title",
+        "icon": "$(clear-all)"
       },
       {
         "command": "codexHistoryViewer.ui.ja.editSessionAnnotation",
@@ -1581,102 +1618,102 @@
       "view/item/context": [
         {
           "command": "codexHistoryViewer.ui.ja.openSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@1"
         },
         {
           "command": "codexHistoryViewer.ui.en.openSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@1"
         },
         {
           "command": "codexHistoryViewer.ui.ja.openSessionMarkdown",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@2"
         },
         {
           "command": "codexHistoryViewer.ui.en.openSessionMarkdown",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@2"
         },
         {
           "command": "codexHistoryViewer.ui.ja.copyResumePrompt",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@3"
         },
         {
           "command": "codexHistoryViewer.ui.en.copyResumePrompt",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@3"
         },
         {
           "command": "codexHistoryViewer.ui.ja.resumeSessionInCodex",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.codex$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.codex(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@0"
         },
         {
           "command": "codexHistoryViewer.ui.en.resumeSessionInCodex",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.codex$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.codex(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@0"
         },
         {
           "command": "codexHistoryViewer.ui.ja.promoteSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.promoteSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.ja.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.ja.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.ja.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.en.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.ja.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang == 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.en.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang != 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.ja.deleteSessions",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "2_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.deleteSessions",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "2_actions"
         },
         {
@@ -1691,22 +1728,42 @@
         },
         {
           "command": "codexHistoryViewer.ui.ja.exportSessions",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ || viewItem == codexHistoryViewer.day || viewItem == codexHistoryViewer.month || viewItem == codexHistoryViewer.year) && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.day || viewItem == codexHistoryViewer.month || viewItem == codexHistoryViewer.year) && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.exportSessions",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ || viewItem == codexHistoryViewer.day || viewItem == codexHistoryViewer.month || viewItem == codexHistoryViewer.year) && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.day || viewItem == codexHistoryViewer.month || viewItem == codexHistoryViewer.year) && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
+          "command": "codexHistoryViewer.ui.ja.setCustomTitle",
+          "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
+          "group": "1_actions@6"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.setCustomTitle",
+          "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
+          "group": "1_actions@6"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.clearCustomTitle",
+          "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)\\.customTitle$/ && codexHistoryViewer.uiLang == 'ja'",
+          "group": "1_actions@7"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.clearCustomTitle",
+          "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)\\.customTitle$/ && codexHistoryViewer.uiLang != 'ja'",
+          "group": "1_actions@7"
+        },
+        {
           "command": "codexHistoryViewer.ui.ja.editSessionAnnotation",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.editSessionAnnotation",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
@@ -1721,12 +1778,12 @@
         },
         {
           "command": "codexHistoryViewer.ui.ja.resumeSessionInClaude",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.claude$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.claude(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@0"
         },
         {
           "command": "codexHistoryViewer.ui.en.resumeSessionInClaude",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.claude$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.claude(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@0"
         },
         {
@@ -1778,6 +1835,28 @@
           "scope": "application",
           "order": 40
         },
+        "codexHistoryViewer.preview.tooltipMode": {
+          "type": "string",
+          "default": "full",
+          "enum": [
+            "full",
+            "compact",
+            "titleOnly"
+          ],
+          "enumItemLabels": [
+            "%cfg.previewTooltipMode.labelFull%",
+            "%cfg.previewTooltipMode.labelCompact%",
+            "%cfg.previewTooltipMode.labelTitleOnly%"
+          ],
+          "enumDescriptions": [
+            "%cfg.previewTooltipMode.enumFull%",
+            "%cfg.previewTooltipMode.enumCompact%",
+            "%cfg.previewTooltipMode.enumTitleOnly%"
+          ],
+          "description": "%cfg.previewTooltipMode%",
+          "scope": "application",
+          "order": 45
+        },
         "codexHistoryViewer.preview.maxMessages": {
           "type": "number",
           "default": 6,
@@ -1807,6 +1886,28 @@
           "description": "%cfg.searchDefaultRoles%",
           "scope": "application",
           "order": 60
+        },
+        "codexHistoryViewer.search.indexToolContent": {
+          "type": "string",
+          "default": "toolCallsAndOutputs",
+          "enum": [
+            "conversationOnly",
+            "toolCalls",
+            "toolCallsAndOutputs"
+          ],
+          "enumItemLabels": [
+            "%cfg.searchIndexToolContent.labelConversationOnly%",
+            "%cfg.searchIndexToolContent.labelToolCalls%",
+            "%cfg.searchIndexToolContent.labelToolCallsAndOutputs%"
+          ],
+          "enumDescriptions": [
+            "%cfg.searchIndexToolContent.enumConversationOnly%",
+            "%cfg.searchIndexToolContent.enumToolCalls%",
+            "%cfg.searchIndexToolContent.enumToolCallsAndOutputs%"
+          ],
+          "description": "%cfg.searchIndexToolContent%",
+          "scope": "application",
+          "order": 65
         },
         "codexHistoryViewer.search.caseSensitive": {
           "type": "boolean",

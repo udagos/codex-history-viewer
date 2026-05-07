@@ -110,6 +110,7 @@ export async function runSearchFlow(
           claudeSessionsRoot: config.claudeSessionsRoot,
           includeCodex: config.enableCodexSource,
           includeClaude: config.enableClaudeSource,
+          indexToolContent: config.searchIndexToolContent,
           token,
           progress,
         });
@@ -239,30 +240,40 @@ async function searchSessions(params: {
     const s = sessions[i]!;
     progress.report({ message: `search ${i + 1}/${total}` });
 
+    totalHits = collectSessionTitleHits({
+      session: s,
+      compiled,
+      bySession,
+      totalHits,
+      maxResults,
+      token,
+    });
+    if (totalHits >= maxResults) continue;
+
     const messages = searchIndexService.getMessages(s.cacheKey);
-    if (!messages || messages.length === 0) continue;
-
-    for (const m of messages) {
-      if (token.isCancellationRequested) return null;
-      if (totalHits >= maxResults) break;
-      if (!roleFilter.has(m.role)) continue;
-
-      const matches = compiled.locateAll(m.text, maxPerMessage);
-      if (matches.length === 0) continue;
-
-      if (!bySession.has(s.cacheKey)) bySession.set(s.cacheKey, { session: s, hits: [] });
-      const bucket = bySession.get(s.cacheKey)!;
-
-      for (const located of matches) {
+    if (messages && messages.length > 0) {
+      for (const m of messages) {
+        if (token.isCancellationRequested) return null;
         if (totalHits >= maxResults) break;
-        const snippet = singleLineSnippet(buildAround(m.text, located.hitAt, located.hitLen), 160);
-        bucket.hits.push({
-          messageIndex: m.messageIndex,
-          role: m.role,
-          source: m.source,
-          snippet,
-        });
-        totalHits += 1;
+        if (!roleFilter.has(m.role)) continue;
+
+        const matches = compiled.locateAll(m.text, maxPerMessage);
+        if (matches.length === 0) continue;
+
+        if (!bySession.has(s.cacheKey)) bySession.set(s.cacheKey, { session: s, hits: [] });
+        const bucket = bySession.get(s.cacheKey)!;
+
+        for (const located of matches) {
+          if (totalHits >= maxResults) break;
+          const snippet = singleLineSnippet(buildAround(m.text, located.hitAt, located.hitLen), 160);
+          bucket.hits.push({
+            messageIndex: m.messageIndex,
+            role: m.role,
+            source: m.source,
+            snippet,
+          });
+          totalHits += 1;
+        }
       }
     }
 
@@ -317,6 +328,50 @@ async function searchSessions(params: {
   for (const s of list) s.hits.sort((a, b) => a.messageIndex - b.messageIndex);
 
   return { totalHits, sessions: list };
+}
+
+function collectSessionTitleHits(params: {
+  session: SessionSummary;
+  compiled: CompiledSearchQuery;
+  bySession: Map<string, { session: SessionSummary; hits: SearchHit[] }>;
+  totalHits: number;
+  maxResults: number;
+  token: vscode.CancellationToken;
+}): number {
+  const { session, compiled, bySession, maxResults, token } = params;
+  let totalHits = params.totalHits;
+
+  for (const field of getSearchableTitleFields(session)) {
+    if (token.isCancellationRequested || totalHits >= maxResults) break;
+    const matches = compiled.locateAll(field.text, 4);
+    if (matches.length === 0) continue;
+
+    if (!bySession.has(session.cacheKey)) bySession.set(session.cacheKey, { session, hits: [] });
+    const bucket = bySession.get(session.cacheKey)!;
+    for (const located of matches) {
+      if (totalHits >= maxResults) break;
+      bucket.hits.push({
+        messageIndex: 0,
+        role: "tool",
+        source: field.source,
+        snippet: singleLineSnippet(buildAround(field.text, located.hitAt, located.hitLen), 160),
+      });
+      totalHits += 1;
+    }
+  }
+
+  return totalHits;
+}
+
+function getSearchableTitleFields(
+  session: SessionSummary,
+): Array<{ source: "customTitle" | "originalTitle"; text: string }> {
+  const fields: Array<{ source: "customTitle" | "originalTitle"; text: string }> = [];
+  const customTitle = String(session.customTitle ?? "").trim();
+  const originalTitle = String(session.originalTitle ?? "").trim();
+  if (customTitle) fields.push({ source: "customTitle", text: customTitle });
+  if (originalTitle && originalTitle !== customTitle) fields.push({ source: "originalTitle", text: originalTitle });
+  return fields;
 }
 
 function buildAround(text: string, hitAt: number, needleLen: number): string {

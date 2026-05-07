@@ -24,14 +24,19 @@ export function resolveSessionDisplayTitle(params: {
   session: SessionSummary;
   titleSource: HistoryTitleSource;
   codexTitlesById?: ReadonlyMap<string, string>;
+  customTitle?: string;
 }): SessionSummary {
   const codexTitlesById = params.codexTitlesById ?? new Map<string, string>();
   const nativeTitle = resolveNativeTitle(params.session, codexTitlesById);
-  const displayTitle = params.titleSource === "nativeWhenAvailable" ? nativeTitle ?? params.session.snippet : params.session.snippet;
+  const originalTitle = params.titleSource === "nativeWhenAvailable" ? nativeTitle ?? params.session.snippet : params.session.snippet;
+  const customTitle = sanitizeTitle(params.customTitle);
+  const displayTitle = customTitle ?? originalTitle;
 
   return {
     ...params.session,
     nativeTitle,
+    originalTitle,
+    customTitle,
     displayTitle,
   };
 }
@@ -40,12 +45,14 @@ export function resolveSessionDisplayTitles(params: {
   sessions: readonly SessionSummary[];
   titleSource: HistoryTitleSource;
   codexTitlesById?: ReadonlyMap<string, string>;
+  getCustomTitle?: (session: SessionSummary) => string | undefined;
 }): SessionSummary[] {
   return params.sessions.map((session) =>
     resolveSessionDisplayTitle({
       session,
       titleSource: params.titleSource,
       codexTitlesById: params.codexTitlesById,
+      customTitle: params.getCustomTitle?.(session),
     }),
   );
 }
