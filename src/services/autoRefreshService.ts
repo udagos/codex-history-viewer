@@ -13,6 +13,8 @@ interface WatchRoot {
 
 type PollTargetProvider = () => readonly string[];
 
+const RESUME_REFRESH_GRACE_MS = 750;
+
 export class AutoRefreshService implements vscode.Disposable {
   private readonly refresh: (changedFsPaths: readonly string[]) => Promise<void>;
   private readonly pollTargets?: PollTargetProvider;
@@ -27,6 +29,7 @@ export class AutoRefreshService implements vscode.Disposable {
   private refreshInFlight = false;
   private disposed = false;
   private lastRefreshAt = 0;
+  private resumeGraceUntil = 0;
   private rootSignature = "";
   private timer: NodeJS.Timeout | null = null;
   private timerDueAt = 0;
@@ -54,6 +57,7 @@ export class AutoRefreshService implements vscode.Disposable {
     if (!config.autoRefresh.enabled) {
       this.enabled = false;
       this.pendingFsPaths.clear();
+      this.resumeGraceUntil = 0;
       this.rootSignature = "";
       this.clearTimer();
       this.clearPollingTimer();
@@ -78,6 +82,7 @@ export class AutoRefreshService implements vscode.Disposable {
   }
 
   public setVisible(visible: boolean): void {
+    const wasRunnable = this.canRun();
     this.visible = visible;
     if (!this.enabled) return;
 
@@ -87,11 +92,13 @@ export class AutoRefreshService implements vscode.Disposable {
       return;
     }
 
+    if (!wasRunnable) this.markResumeGrace();
     if (this.pendingFsPaths.size > 0) this.schedule();
     this.pollOpenTargets();
   }
 
   public setFocused(focused: boolean): void {
+    const wasRunnable = this.canRun();
     this.focused = focused;
     if (!this.enabled) return;
 
@@ -101,6 +108,7 @@ export class AutoRefreshService implements vscode.Disposable {
       return;
     }
 
+    if (!wasRunnable) this.markResumeGrace();
     if (this.pendingFsPaths.size > 0) this.schedule();
     this.pollOpenTargets();
   }
@@ -158,8 +166,12 @@ export class AutoRefreshService implements vscode.Disposable {
     if (this.refreshInFlight) return;
 
     const now = Date.now();
-    const dueAt = Math.max(now + this.debounceMs, this.lastRefreshAt + this.minIntervalMs);
+    const dueAt = Math.max(now + this.debounceMs, this.lastRefreshAt + this.minIntervalMs, this.resumeGraceUntil);
     this.scheduleAt(dueAt);
+  }
+
+  private markResumeGrace(): void {
+    this.resumeGraceUntil = Math.max(this.resumeGraceUntil, Date.now() + RESUME_REFRESH_GRACE_MS);
   }
 
   private scheduleAt(dueAt: number): void {

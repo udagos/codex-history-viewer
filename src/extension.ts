@@ -26,7 +26,8 @@ import {
 } from "./services/sessionTitleOverrideStore";
 import { AutoRefreshService } from "./services/autoRefreshService";
 import { ChatOpenPositionStore } from "./services/chatOpenPositionStore";
-import { type UndoCleanupReason, UndoService } from "./services/undoService";
+import { formatDebugFields, safeDebugBasename, sanitizeDebugError } from "./services/debugLogUtils";
+import { type UndoCleanupReason, type UndoPostRefreshMode, UndoService } from "./services/undoService";
 import { OutputChannelLogger } from "./services/logger";
 import {
   type StorageStats,
@@ -41,6 +42,8 @@ import {
   StatusTreeDataProvider,
 } from "./tree/utilityTrees";
 import { ChatPanelManager } from "./chat/chatPanelManager";
+import { FileChangeHistoryPanelManager } from "./fileHistory/fileChangeHistoryPanelManager";
+import { FileChangeHistoryService } from "./fileHistory/fileChangeHistoryService";
 import { getDateScopeValue, sanitizeDateScope, type DateScope } from "./types/dateScope";
 import { resolveDateTimeSettings } from "./utils/dateTimeSettings";
 import { safeDisplayPath } from "./utils/textUtils";
@@ -90,6 +93,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
     logger,
   );
+  const fileChangeHistoryService = new FileChangeHistoryService();
+  const fileChangeHistoryPanels = new FileChangeHistoryPanelManager(
+    context.extensionUri,
+    historyService,
+    searchIndexService,
+    fileChangeHistoryService,
+    chatPanels,
+    logger,
+  );
+  context.subscriptions.push(fileChangeHistoryPanels);
   let storageStats: StorageStats = {
     globalStorageBytes: 0,
     trashFileCount: 0,
@@ -713,8 +726,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.workspace.onDidChangeConfiguration((e) => {
       const uiLanguageChanged = e.affectsConfiguration("codexHistoryViewer.ui.language");
       const headerActionsChanged = e.affectsConfiguration("codexHistoryViewer.ui.alwaysShowHeaderActions");
+      const timeGuideChanged = e.affectsConfiguration("codexHistoryViewer.ui.timeGuide.enabled");
       const searchDefaultRolesChanged = e.affectsConfiguration("codexHistoryViewer.search.defaultRoles");
       const searchIndexToolContentChanged = e.affectsConfiguration("codexHistoryViewer.search.indexToolContent");
+      const fileChangeHistoryExplorerContextMenuChanged = e.affectsConfiguration(
+        "codexHistoryViewer.fileChangeHistory.explorerContextMenu.enabled",
+      );
       const sourcesEnabledChanged = e.affectsConfiguration("codexHistoryViewer.sources.enabled");
       const sessionsRootChanged =
         e.affectsConfiguration("codexHistoryViewer.sessionsRoot") ||
@@ -726,6 +743,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const previewTooltipModeChanged = e.affectsConfiguration("codexHistoryViewer.preview.tooltipMode");
       const autoRefreshChanged = e.affectsConfiguration("codexHistoryViewer.autoRefresh");
       const chatOpenPositionChanged = e.affectsConfiguration("codexHistoryViewer.chat.openPosition");
+      const chatPerformanceModeChanged = e.affectsConfiguration("codexHistoryViewer.chat.performanceMode");
       const toolDisplayModeChanged = e.affectsConfiguration("codexHistoryViewer.chat.toolDisplayMode");
       const userLongMessageFoldingChanged = e.affectsConfiguration("codexHistoryViewer.chat.userLongMessageFolding");
       const assistantLongMessageFoldingChanged = e.affectsConfiguration(
@@ -738,8 +756,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (
         !uiLanguageChanged &&
         !headerActionsChanged &&
+        !timeGuideChanged &&
         !searchDefaultRolesChanged &&
         !searchIndexToolContentChanged &&
+        !fileChangeHistoryExplorerContextMenuChanged &&
         !sourcesEnabledChanged &&
         !sessionsRootChanged &&
         !historyDateBasisChanged &&
@@ -748,6 +768,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         !previewTooltipModeChanged &&
         !autoRefreshChanged &&
         !chatOpenPositionChanged &&
+        !chatPerformanceModeChanged &&
         !toolDisplayModeChanged &&
         !longMessageFoldingChanged &&
         !imagesChanged
@@ -773,6 +794,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       void autoRefreshService?.configure(getConfig(), computeAutoRefreshConsumerVisible(), vscode.window.state.focused);
       if (uiLanguageChanged || toolDisplayModeChanged || longMessageFoldingChanged || imagesChanged) chatPanels.refreshPanels();
       else chatPanels.refreshI18n();
+      if (uiLanguageChanged || timeGuideChanged) fileChangeHistoryPanels.refreshI18n();
+      if (searchIndexToolContentChanged) fileChangeHistoryPanels.notifySettingsChanged("indexToolContent");
+      if (sourcesEnabledChanged) fileChangeHistoryPanels.notifySettingsChanged("sources");
       void ensureAlwaysShowHeaderActions();
       if (searchIndexToolContentChanged) promptSearchIndexRebuild();
 
@@ -1119,8 +1143,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     label: string,
     undo: () => Promise<void>,
     cleanup?: (reason: UndoCleanupReason) => Promise<void> | void,
+    options?: { postUndoRefresh?: UndoPostRefreshMode },
   ): void => {
-    undoService.push({ label, undo, cleanup });
+    undoService.push({ label, undo, cleanup, postUndoRefresh: options?.postUndoRefresh });
   };
 
   const offerUndo = (message: string): void => {
@@ -1322,6 +1347,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand("codexHistoryViewer.openSessionReusable", async (element?: unknown) => {
       await openReusableSessionFromElement(element);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexHistoryViewer.openFileChangeHistory", async (uri?: unknown) => {
+      const fileUri = uri instanceof vscode.Uri ? uri : undefined;
+      await fileChangeHistoryPanels.openForUri(fileUri);
     }),
   );
 
@@ -1889,83 +1921,170 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         void vscode.window.showInformationMessage(t("undo.none"));
         return;
       }
-      await refreshHistoryIndex(false);
-      refreshViews({ clearSearch: true });
+      if (action.postUndoRefresh !== "none") {
+        await refreshHistoryIndex(false);
+        refreshViews({ clearSearch: true });
+      }
       void vscode.window.showInformationMessage(t("undo.done", action.label));
     }),
   );
 
+  const resolveCustomTitleSession = (element?: unknown): SessionSummary | undefined =>
+    resolveSessionFromElementOrFsPath(historyService, element) ??
+    resolveSessionFromElementOrActive(historyService, transcriptProvider.scheme, element);
+
+  const clearCustomTitleForSession = async (session: SessionSummary): Promise<boolean> => {
+    const previousTitle = normalizeCustomTitle(titleOverrideStore.getTitle(session) ?? session.customTitle ?? "");
+    const changed = await titleOverrideStore.clear(session);
+    if (!changed) {
+      logger.debug(
+        formatDebugFields("customTitle clear noop", {
+          session: safeDebugBasename(session.fsPath),
+          hadTitle: !!previousTitle,
+        }),
+      );
+      void vscode.window.showInformationMessage(t("customTitle.noChanges"));
+      return false;
+    }
+
+    await refreshAfterTitleOverrideChange();
+    logger.debug(
+      formatDebugFields("customTitle clear done", {
+        session: safeDebugBasename(session.fsPath),
+        hadTitle: !!previousTitle,
+      }),
+    );
+    if (previousTitle) {
+      pushUndoAction(
+        t("undo.label.customTitleClear"),
+        async () => {
+          await titleOverrideStore.set(session, previousTitle);
+          await refreshAfterTitleOverrideChange();
+          logger.debug(
+            formatDebugFields("customTitle undoClear done", {
+              session: safeDebugBasename(session.fsPath),
+            }),
+          );
+        },
+        undefined,
+        { postUndoRefresh: "none" },
+      );
+      offerUndo(t("customTitle.cleared"));
+    } else {
+      void vscode.window.showInformationMessage(t("customTitle.cleared"));
+    }
+    return true;
+  };
+
+  const setCustomTitleForSession = async (session: SessionSummary): Promise<boolean> => {
+    const input = await vscode.window.showInputBox({
+      title: t("customTitle.input.title"),
+      prompt: t("customTitle.input.prompt"),
+      value: session.customTitle ?? session.displayTitle,
+      validateInput: (value) => {
+        const normalized = normalizeCustomTitle(value);
+        return isCustomTitleTooLong(normalized)
+          ? t("customTitle.error.tooLong", getMaxCustomTitleLength())
+          : undefined;
+      },
+    });
+    if (input === undefined) return false;
+
+    const nextTitle = normalizeCustomTitle(input);
+    if (isCustomTitleTooLong(nextTitle)) {
+      void vscode.window.showErrorMessage(t("customTitle.error.tooLong", getMaxCustomTitleLength()));
+      return false;
+    }
+
+    const originalTitle = normalizeCustomTitle(session.originalTitle ?? session.displayTitle);
+    const currentTitle = normalizeCustomTitle(session.customTitle ?? "");
+    if (!nextTitle || (originalTitle && nextTitle === originalTitle)) {
+      return clearCustomTitleForSession(session);
+    }
+
+    if (currentTitle === nextTitle) {
+      logger.debug(
+        formatDebugFields("customTitle set noop", {
+          session: safeDebugBasename(session.fsPath),
+          hadTitle: !!currentTitle,
+        }),
+      );
+      void vscode.window.showInformationMessage(t("customTitle.noChanges"));
+      return false;
+    }
+
+    await titleOverrideStore.set(session, nextTitle);
+    await refreshAfterTitleOverrideChange();
+    logger.debug(
+      formatDebugFields("customTitle set done", {
+        session: safeDebugBasename(session.fsPath),
+        hadTitle: !!currentTitle,
+        length: nextTitle.length,
+      }),
+    );
+    void vscode.window.showInformationMessage(t("customTitle.saved"));
+    return true;
+  };
+
+  const manageCustomTitleForSession = async (session: SessionSummary): Promise<boolean> => {
+    const items: Array<vscode.QuickPickItem & { action: "set" | "clear" }> = [
+      {
+        label: t("customTitle.action.set"),
+        action: "set",
+      },
+    ];
+    if (normalizeCustomTitle(session.customTitle ?? "")) {
+      items.push({
+        label: t("customTitle.action.clear"),
+        description: t("customTitle.action.clear.description"),
+        action: "clear",
+      });
+    }
+
+    const picked = await vscode.window.showQuickPick(items, {
+      title: t("customTitle.manage.title"),
+      placeHolder: t("customTitle.manage.placeholder"),
+    });
+    if (!picked) return false;
+    logger.debug(
+      formatDebugFields("customTitle manage pick", {
+        session: safeDebugBasename(session.fsPath),
+        action: picked.action,
+      }),
+    );
+    return picked.action === "clear" ? clearCustomTitleForSession(session) : setCustomTitleForSession(session);
+  };
+
   context.subscriptions.push(
     vscode.commands.registerCommand("codexHistoryViewer.setCustomTitle", async (element?: unknown) => {
-      const session =
-        resolveSessionFromElementOrFsPath(historyService, element) ??
-        resolveSessionFromElementOrActive(historyService, transcriptProvider.scheme, element);
+      const session = resolveCustomTitleSession(element);
       if (!session) {
         void vscode.window.showInformationMessage(t("customTitle.noSessionSelected"));
-        return;
+        return false;
       }
-
-      const input = await vscode.window.showInputBox({
-        title: t("customTitle.input.title"),
-        prompt: t("customTitle.input.prompt"),
-        value: session.customTitle ?? session.displayTitle,
-        validateInput: (value) => {
-          const normalized = normalizeCustomTitle(value);
-          return isCustomTitleTooLong(normalized)
-            ? t("customTitle.error.tooLong", getMaxCustomTitleLength())
-            : undefined;
-        },
-      });
-      if (input === undefined) return;
-
-      const nextTitle = normalizeCustomTitle(input);
-      if (isCustomTitleTooLong(nextTitle)) {
-        void vscode.window.showErrorMessage(t("customTitle.error.tooLong", getMaxCustomTitleLength()));
-        return;
-      }
-
-      const originalTitle = normalizeCustomTitle(session.originalTitle ?? session.displayTitle);
-      const currentTitle = normalizeCustomTitle(session.customTitle ?? "");
-      if (!nextTitle || (originalTitle && nextTitle === originalTitle)) {
-        const changed = await titleOverrideStore.clear(session);
-        if (!changed) {
-          void vscode.window.showInformationMessage(t("customTitle.noChanges"));
-          return;
-        }
-        await refreshAfterTitleOverrideChange();
-        void vscode.window.showInformationMessage(t("customTitle.cleared"));
-        return;
-      }
-
-      if (currentTitle === nextTitle) {
-        void vscode.window.showInformationMessage(t("customTitle.noChanges"));
-        return;
-      }
-
-      await titleOverrideStore.set(session, nextTitle);
-      await refreshAfterTitleOverrideChange();
-      void vscode.window.showInformationMessage(t("customTitle.saved"));
+      return setCustomTitleForSession(session);
     }),
   );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("codexHistoryViewer.clearCustomTitle", async (element?: unknown) => {
-      const session =
-        resolveSessionFromElementOrFsPath(historyService, element) ??
-        resolveSessionFromElementOrActive(historyService, transcriptProvider.scheme, element);
+      const session = resolveCustomTitleSession(element);
       if (!session) {
         void vscode.window.showInformationMessage(t("customTitle.noSessionSelected"));
-        return;
+        return false;
       }
+      return clearCustomTitleForSession(session);
+    }),
+  );
 
-      const changed = await titleOverrideStore.clear(session);
-      if (!changed) {
-        void vscode.window.showInformationMessage(t("customTitle.noChanges"));
-        return;
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexHistoryViewer.manageCustomTitle", async (element?: unknown) => {
+      const session = resolveCustomTitleSession(element);
+      if (!session) {
+        void vscode.window.showInformationMessage(t("customTitle.noSessionSelected"));
+        return false;
       }
-
-      await refreshAfterTitleOverrideChange();
-      void vscode.window.showInformationMessage(t("customTitle.cleared"));
+      return manageCustomTitleForSession(session);
     }),
   );
 
@@ -2633,8 +2752,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await annotationStore.removeMany(deletedPaths);
       try {
         await chatOpenPositionStore.deleteMany(deletedPaths);
-      } catch {
-        logger.debug("chatOpenPosition deleteMany failed");
+      } catch (error) {
+        logger.debug(
+          formatDebugFields("chatOpenPosition deleteMany failed", {
+            count: deletedPaths.length,
+            error: sanitizeDebugError(error),
+          }),
+        );
       }
 
       if (result.undoItems.length > 0) {
@@ -2767,6 +2891,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerUiCommandAlias("codexHistoryViewer.ui.en.searchSavePreset", "codexHistoryViewer.searchSavePreset");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.searchDeletePreset", "codexHistoryViewer.searchDeletePreset");
   registerUiCommandAlias("codexHistoryViewer.ui.en.searchDeletePreset", "codexHistoryViewer.searchDeletePreset");
+  registerUiCommandAlias("codexHistoryViewer.ui.ja.manageCustomTitle", "codexHistoryViewer.manageCustomTitle");
+  registerUiCommandAlias("codexHistoryViewer.ui.en.manageCustomTitle", "codexHistoryViewer.manageCustomTitle");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.setCustomTitle", "codexHistoryViewer.setCustomTitle");
   registerUiCommandAlias("codexHistoryViewer.ui.en.setCustomTitle", "codexHistoryViewer.setCustomTitle");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.clearCustomTitle", "codexHistoryViewer.clearCustomTitle");

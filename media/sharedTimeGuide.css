@@ -1,0 +1,227 @@
+/* Shared right-side time guide styles. */
+
+.dateGuide[hidden] {
+  display: none !important;
+}
+
+.dateGuide {
+  position: fixed;
+  z-index: 2;
+  top: calc(var(--chv-toolbar-height, 44px) + 12px);
+  right: 8px;
+  width: 72px;
+  height: calc(100vh - var(--chv-toolbar-height, 44px) - 24px);
+  overflow: visible;
+  overscroll-behavior: contain;
+  padding: 2px 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(48px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.dateGuide:hover,
+body.dateGuideHovering .dateGuide,
+body.dateGuideScrolling .dateGuide {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.dateGuideHoverRail {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 48px;
+  bottom: 0;
+  width: 24px;
+  pointer-events: auto;
+}
+
+body.dateGuideHovering .dateGuideHoverRail,
+body.dateGuideScrolling .dateGuideHoverRail {
+  pointer-events: none;
+}
+
+.dateGuideTimeline {
+  position: relative;
+  height: 100%;
+  min-height: 180px;
+  pointer-events: none;
+}
+
+.dateGuideTimeline::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  right: 9px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chv-accent) 26%, var(--chv-border) 74%);
+  opacity: 0.92;
+}
+
+.dateGuideTick {
+  position: absolute;
+  top: var(--pos);
+  right: 0;
+  display: grid;
+  width: 100%;
+  min-height: 16px;
+  grid-template-columns: minmax(0, 1fr) 14px;
+  gap: 5px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--chv-muted);
+  cursor: pointer;
+  pointer-events: none;
+  text-align: left;
+  transform: translateY(-50%);
+}
+
+.dateGuideTick:hover,
+.dateGuideTick-tooltipActive {
+  color: var(--chv-fg);
+}
+
+.dateGuideTick::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  z-index: 20;
+  top: 50%;
+  right: 18px;
+  display: none;
+  min-width: max-content;
+  max-width: min(340px, calc(100vw - 120px));
+  padding: 5px 9px;
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--chv-accent));
+  border-radius: 5px;
+  background: var(--vscode-editorHoverWidget-background, var(--chv-assistant-bg));
+  box-shadow:
+    0 6px 16px color-mix(in srgb, var(--chv-bg) 54%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--chv-accent) 18%, transparent);
+  color: var(--vscode-editorHoverWidget-foreground, var(--chv-fg));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  pointer-events: none;
+  transform: translateY(-50%);
+  white-space: normal;
+}
+
+.dateGuideTick.dateGuideTick-tooltipActive::after {
+  display: block;
+}
+
+.dateGuideDot {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: 5px;
+  height: 5px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chv-accent) 44%, var(--chv-muted) 56%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chv-bg) 76%, transparent);
+  pointer-events: none;
+}
+
+.dateGuideHit {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: -5px;
+  width: 28px;
+  height: 24px;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateY(-50%);
+}
+
+.dateGuideTick-major .dateGuideDot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid color-mix(in srgb, var(--chv-accent) 78%, var(--chv-fg) 22%);
+  background: color-mix(in srgb, var(--chv-bg) 78%, var(--chv-accent) 22%);
+}
+
+.dateGuideTick:hover .dateGuideDot,
+.dateGuideTick-tooltipActive .dateGuideDot {
+  background: var(--chv-accent);
+}
+
+.dateGuideTick-current {
+  color: var(--chv-accent);
+}
+
+.dateGuideTick-current .dateGuideDot {
+  width: 9px;
+  height: 9px;
+  border: 2px solid color-mix(in srgb, var(--chv-accent) 62%, var(--chv-bg) 38%);
+  background: var(--chv-accent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--chv-accent) 16%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--chv-bg) 72%, transparent);
+}
+
+.dateGuideTick-current .dateGuideLabel {
+  color: var(--chv-accent);
+  font-weight: 700;
+}
+
+.dateGuideLabel {
+  overflow: hidden;
+  color: var(--chv-fg);
+  font-size: 11px;
+  line-height: 1;
+  text-align: right;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .dateGuide {
+    top: calc(var(--chv-toolbar-height, 44px) + 8px);
+    width: 34px;
+    height: calc(100vh - var(--chv-toolbar-height, 44px) - 16px);
+    padding: 0;
+    transform: translateX(22px);
+  }
+
+  .dateGuide:hover,
+  body.dateGuideHovering .dateGuide,
+  body.dateGuideScrolling .dateGuide {
+    transform: translateX(0);
+  }
+
+  .dateGuideHoverRail {
+    right: 22px;
+    width: 18px;
+  }
+
+  .dateGuideTimeline::before {
+    right: 6px;
+  }
+
+  .dateGuideTick {
+    min-height: 18px;
+    grid-template-columns: 1fr;
+    justify-items: end;
+  }
+
+  .dateGuideDot {
+    justify-self: end;
+    margin-right: 1px;
+  }
+
+  .dateGuideLabel {
+    display: none;
+  }
+
+  .dateGuideTick::after {
+    right: 18px;
+  }
+}

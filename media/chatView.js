@@ -9,12 +9,14 @@
   const timelineEl = document.getElementById("timeline");
   const btnResumeInCodex = document.getElementById("btnResumeInCodex");
   const btnPinToggle = document.getElementById("btnPinToggle");
+  const btnCustomTitle = document.getElementById("btnCustomTitle");
   const btnMarkdown = document.getElementById("btnMarkdown");
   const btnCopyResume = document.getElementById("btnCopyResume");
   const btnToggleDetails = document.getElementById("btnToggleDetails");
   const btnScrollTop = document.getElementById("btnScrollTop");
   const btnScrollBottom = document.getElementById("btnScrollBottom");
   const btnPageSearch = document.getElementById("btnPageSearch");
+  const btnPerformanceMode = document.getElementById("btnPerformanceMode");
   const btnAutoRefresh = document.getElementById("btnAutoRefresh");
   const btnReload = document.getElementById("btnReload");
   const pageSearchBarEl = document.getElementById("pageSearchBar");
@@ -26,6 +28,7 @@
   const btnPageSearchPrev = document.getElementById("btnPageSearchPrev");
   const btnPageSearchNext = document.getElementById("btnPageSearchNext");
   const btnPageSearchClose = document.getElementById("btnPageSearchClose");
+  const restoreCoverEl = document.getElementById("restoreCover");
 
   const md = createMarkdownRenderer();
   const COPY_ICON_SVG =
@@ -52,14 +55,18 @@
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.5 2.5a.75.75 0 0 1 .75.75v2.53A5.25 5.25 0 1 1 2.75 8a.75.75 0 0 1 1.5 0 3.75 3.75 0 1 0 2-3.31v2.06a.75.75 0 0 1-1.28.53L2.7 5.03a.75.75 0 0 1 0-1.06l2.27-2.25a.75.75 0 0 1 .53-.22Z"/></svg>';
   const PIN_ICON_SVG =
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M5.25 1.5a.75.75 0 0 0-.53 1.28L5.94 4v2.38L3.72 8.6a.75.75 0 0 0 .53 1.28h3v4.37a.75.75 0 0 0 1.5 0V9.88h3a.75.75 0 0 0 .53-1.28L10.06 6.38V4l1.22-1.22a.75.75 0 0 0-.53-1.28h-5.5Z"/></svg>';
-  const UNPIN_ICON_SVG =
-    '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.28 2.78a.75.75 0 1 0-1.06-1.06L1.72 10.22a.75.75 0 1 0 1.06 1.06l3.13-3.13h1.34v3.1a.75.75 0 1 0 1.5 0v-3.1h1.34l2.13 2.13a.75.75 0 1 0 1.06-1.06L11.06 7V5.66l.22-.22a.75.75 0 0 0 0-1.06L10.84 3.94l.44-.44Z"/></svg>';
+  const CUSTOM_TITLE_ICON_SVG =
+    '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M11.56 1.56a1.9 1.9 0 0 1 2.68 2.68l-7.4 7.4a2.25 2.25 0 0 1-1.01.57l-2.24.56a.75.75 0 0 1-.91-.91l.56-2.24c.1-.4.3-.74.57-1.01l7.4-7.4Zm1.62 1.06a.4.4 0 0 0-.56 0l-1.04 1.04 1.62 1.62 1.04-1.04a.4.4 0 0 0 0-.56l-1.06-1.06ZM10.52 4.72 4.31 10.93a.75.75 0 0 0-.19.34l-.3 1.2 1.2-.3a.75.75 0 0 0 .34-.19l6.21-6.21-1.05-1.05Z"/></svg>';
   const MARKDOWN_ICON_SVG =
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.25 2h9.5A1.75 1.75 0 0 1 14.5 3.75v8.5A1.75 1.75 0 0 1 12.75 14h-9.5A1.75 1.75 0 0 1 1.5 12.25v-8.5A1.75 1.75 0 0 1 3.25 2Zm0 1.5a.25.25 0 0 0-.25.25v8.5c0 .14.11.25.25.25h9.5a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25h-9.5Zm1.5 1.75h1.5l1.25 1.88 1.25-1.88h1.5v5.5H9V7.55L7.5 9.75 6 7.55v3.2H4.75v-5.5Zm6.5 3h1.25l-1.88 2.5-1.87-2.5h1.25V5.25h1.25v3Z"/></svg>';
   const SEARCH_ICON_SVG =
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M6.75 2a4.75 4.75 0 1 1 0 9.5 4.75 4.75 0 0 1 0-9.5Zm0 1.5a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5Zm4.9 6.83 2.13 2.14a.75.75 0 1 1-1.06 1.06l-2.14-2.13a.75.75 0 1 1 1.07-1.07Z"/></svg>';
   const AUTO_REFRESH_ICON_SVG =
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><g fill="none"><path d="M5.2 2.6A5.2 5.2 0 0 1 13 7"/><path d="M13 7l1.15-1.55M13 7l-1.55-1.15"/><path d="M10.8 13.4A5.2 5.2 0 0 1 3 9"/><path d="M3 9l-1.15 1.55M3 9l1.55 1.15"/><circle cx="8" cy="8" r="2.25"/><path d="M8 6.75v1.45l1.05.65"/></g></svg>';
+  const PERFORMANCE_NORMAL_ICON_SVG =
+    '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><g fill="none"><path d="M2.75 10.75a5.25 5.25 0 1 1 10.5 0"/><path d="M8 10.75 10.7 6.9"/><path d="M4.75 10.75h6.5"/></g></svg>';
+  const PERFORMANCE_SIMPLIFIED_ICON_SVG =
+    '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"><g fill="none"><path d="M2.75 10.75a5.25 5.25 0 1 1 10.5 0"/><path d="M8 10.75 11.6 5.5"/><path d="M6.9 2.95 5.65 6.3h2.3l-1.1 3.05 3.45-4.6H8.1l1.05-1.8"/></g></svg>';
   const CLOSE_ICON_SVG =
     '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/></svg>';
   const SAVE_ICON_SVG =
@@ -144,6 +151,21 @@
   const MIN_PAGE_SEARCH_WIDTH = 280;
   const OPEN_POSITION_SAVE_DEBOUNCE_MS = 800;
   const MAX_CACHED_IMAGE_DATA = 64;
+  const TIME_GUIDE_REBUILD_IDLE_TIMEOUT_MS = 900;
+  const TIME_GUIDE_REBUILD_FALLBACK_DELAY_MS = 80;
+  const RESTORE_COVER_HIDE_DELAY_MS = 140;
+  const RESTORE_COVER_MIN_VISIBLE_MS = 220;
+  const RESTORE_COVER_MAX_WAIT_MS = 900;
+  const RESTORE_COVER_STABLE_FRAMES = 3;
+  const DEFERRED_RENDER_FRAME_BUDGET_MS = 8;
+  const DEFERRED_PATCH_ROOT_MARGIN = "1200px 0px";
+  const DEFERRED_PATCH_PLACEHOLDER_MIN_HEIGHT = 120;
+  const DEFERRED_SEARCH_REFRESH_DELAY_MS = 180;
+  const SIMPLIFIED_FILE_SIZE_BYTES = 16 * 1024 * 1024;
+  const SIMPLIFIED_ITEM_COUNT = 1000;
+  const SIMPLIFIED_DIFF_ENTRY_COUNT = 300;
+  const SIMPLIFIED_DIFF_LINE_ESTIMATE = 8000;
+  const SIMPLIFIED_IMAGE_COUNT = 80;
 
   /** @type {any} */
   let model = null;
@@ -157,6 +179,12 @@
   let imageSettings = { thumbnailSize: "medium" };
   let panelKind = "session";
   let chatOpenPosition = "top";
+  let configuredPerformanceMode = "auto";
+  let temporaryPerformanceMode = null;
+  let effectivePerformanceMode = "normal";
+  let performanceStats = {};
+  let lastPerformanceDebugSignature = "";
+  let autoPerformanceToastShown = false;
   let autoRefreshAvailable = false;
   let autoRefreshMode = "off";
   let debugLoggingEnabled = false;
@@ -186,6 +214,32 @@
   let openPositionSaveTimer = 0;
   let toolbarCompactFrame = 0;
   let patchLayoutFrame = 0;
+  let timeGuideEnabled = false;
+  let timeGuide = null;
+  let timeGuideItems = [];
+  let timeGuideUpdateFrame = 0;
+  let timeGuideUpdateTimer = 0;
+  let timeGuideUpdateIdle = 0;
+  let timeGuideUpdateNeedsRebuild = false;
+  let timeGuideUpdateGeneration = 0;
+  let restoreCoverActive = false;
+  let restoreCoverFrame = 0;
+  let restoreCoverTimer = 0;
+  let restoreCoverShownAt = 0;
+  let pendingTimeGuideAfterRestoreCover = null;
+  let deferredRenderGeneration = 0;
+  let deferredRenderQueue = [];
+  let deferredRenderKeys = new Set();
+  let deferredRenderFrame = 0;
+  let deferredRenderTimer = 0;
+  let deferredPatchObserver = null;
+  let deferredPageSearchRefreshTimer = 0;
+  const patchBodyHeightByEntryId = new Map();
+  const patchEntrySummaryById = new Map();
+  const patchEntryDetailsById = new Map();
+  const patchEntryDetailsLoading = new Set();
+  const patchEntryDetailsFailed = new Map();
+  const deferredPatchBodyRequests = new WeakMap();
   let webviewState = typeof vscode.getState === "function" ? vscode.getState() || {} : {};
   const lazyImageObserver =
     typeof IntersectionObserver === "function"
@@ -216,36 +270,47 @@
   }
 
   if (scrollRootEl instanceof HTMLElement) {
-    scrollRootEl.addEventListener("scroll", schedulePersistChatOpenPosition, { passive: true });
+    scrollRootEl.addEventListener("scroll", handleScrollRootScroll, { passive: true });
   }
   window.addEventListener("blur", () => {
     persistCurrentChatOpenPosition({ immediate: true });
   });
   window.addEventListener("pagehide", () => {
+    showRestoreCover();
     persistCurrentChatOpenPosition({ immediate: true });
+  });
+  window.addEventListener("pageshow", () => {
+    scheduleRestoreCoverRelease();
+    if (!isRestoreCoverBlockingTimeGuide()) resumeDeferredRenderWork();
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
+      showRestoreCover();
       persistCurrentChatOpenPosition({ immediate: true });
+    } else if (document.visibilityState === "visible") {
+      scheduleRestoreCoverRelease();
+      if (!isRestoreCoverBlockingTimeGuide()) resumeDeferredRenderWork();
     }
   });
 
   // Initial button labels (overwritten after receiving sessionData).
   setToolbarButtonWithIcon(btnResumeInCodex, "Resume in Codex", RESUME_ICON_SVG);
-  setToolbarButtonWithIcon(btnPinToggle, "Pin", PIN_ICON_SVG);
-  setToolbarButtonWithIcon(btnMarkdown, "Markdown", MARKDOWN_ICON_SVG);
-  setToolbarButtonWithIcon(btnCopyResume, "Copy prompt", COPY_ICON_SVG);
+  setToolbarIconButton(btnPinToggle, PIN_ICON_SVG, "Pin");
+  setToolbarIconButton(btnCustomTitle, CUSTOM_TITLE_ICON_SVG, "Custom title");
+  setToolbarIconButton(btnMarkdown, MARKDOWN_ICON_SVG, "Markdown");
+  setToolbarIconButton(btnCopyResume, COPY_ICON_SVG, "Copy prompt");
   // Scroll buttons stay icon-only in the toolbar.
-  if (btnScrollTop instanceof HTMLElement) btnScrollTop.innerHTML = SCROLL_TOP_ICON_SVG;
-  if (btnScrollBottom instanceof HTMLElement) btnScrollBottom.innerHTML = SCROLL_BOTTOM_ICON_SVG;
-  if (btnPageSearch instanceof HTMLElement) btnPageSearch.innerHTML = SEARCH_ICON_SVG;
-  if (btnAutoRefresh instanceof HTMLElement) btnAutoRefresh.innerHTML = AUTO_REFRESH_ICON_SVG;
+  setToolbarIconButton(btnToggleDetails, DETAILS_OFF_ICON_SVG, "Details");
+  setToolbarIconButton(btnScrollTop, SCROLL_TOP_ICON_SVG, "Top");
+  setToolbarIconButton(btnScrollBottom, SCROLL_BOTTOM_ICON_SVG, "Bottom");
+  setToolbarIconButton(btnPageSearch, SEARCH_ICON_SVG, "Find");
+  setToolbarIconButton(btnPerformanceMode, PERFORMANCE_NORMAL_ICON_SVG, "Performance");
+  setToolbarIconButton(btnAutoRefresh, AUTO_REFRESH_ICON_SVG, "Auto refresh");
   // Reload is icon-only (tooltip is set via i18n).
-  btnReload.innerHTML = RELOAD_ICON_SVG;
-  setToolbarButtonWithIcon(btnToggleDetails, "Details", DETAILS_OFF_ICON_SVG);
-  if (btnPageSearchPrev instanceof HTMLElement) btnPageSearchPrev.innerHTML = NAV_UP_ICON_SVG;
-  if (btnPageSearchNext instanceof HTMLElement) btnPageSearchNext.innerHTML = NAV_DOWN_ICON_SVG;
-  if (btnPageSearchClose instanceof HTMLElement) btnPageSearchClose.innerHTML = CLOSE_ICON_SVG;
+  setToolbarIconButton(btnReload, RELOAD_ICON_SVG, "Reload");
+  setToolbarIconButton(btnPageSearchPrev, NAV_UP_ICON_SVG, "Previous match");
+  setToolbarIconButton(btnPageSearchNext, NAV_DOWN_ICON_SVG, "Next match");
+  setToolbarIconButton(btnPageSearchClose, CLOSE_ICON_SVG, "Close search");
 
   btnResumeInCodex.addEventListener("click", () => {
     vscode.postMessage({ type: "resumeInSource" });
@@ -253,9 +318,19 @@
   btnPinToggle.addEventListener("click", () => {
     vscode.postMessage({ type: "togglePin" });
   });
+  if (btnCustomTitle instanceof HTMLElement) {
+    btnCustomTitle.addEventListener("click", () => {
+      vscode.postMessage({ type: "manageCustomTitle" });
+    });
+  }
   btnPageSearch.addEventListener("click", () => {
     togglePageSearch();
   });
+  if (btnPerformanceMode instanceof HTMLElement) {
+    btnPerformanceMode.addEventListener("click", () => {
+      toggleTemporaryPerformanceMode();
+    });
+  }
 
   btnMarkdown.addEventListener("click", () => {
     vscode.postMessage({
@@ -280,7 +355,7 @@
     autoRefreshMode = cycleAutoRefreshMode(autoRefreshMode);
     updateToolbar();
     vscode.postMessage({ type: "setAutoRefreshMode", mode: autoRefreshMode });
-    showToast(getAutoRefreshToast(autoRefreshMode));
+    showToast(getAutoRefreshToast(autoRefreshMode), { key: "autoRefresh" });
   });
 
   btnReload.addEventListener("click", () => {
@@ -374,6 +449,7 @@
     applyPageSearchPanelWidth();
     scheduleToolbarCompactMode();
     schedulePatchLayoutSync();
+    updateTimeGuide({ afterPaint: true });
   });
   applyPageSearchPanelWidth();
   if (toolbarResizeObserver) toolbarResizeObserver.observe(toolbarEl);
@@ -428,6 +504,14 @@
 
   window.addEventListener("message", (event) => {
     const msg = event.data || {};
+    if (msg.type === "viewState") {
+      if (msg.visible === false) showRestoreCover();
+      else if (msg.visible === true) {
+        scheduleRestoreCoverRelease();
+        if (!isRestoreCoverBlockingTimeGuide()) resumeDeferredRenderWork();
+      }
+      return;
+    }
     if (msg.type === "sessionData") {
       const restoreScrollY = typeof msg.restoreScrollY === "number" ? msg.restoreScrollY : undefined;
       const restoreSelectedMessageIndex =
@@ -438,6 +522,7 @@
         typeof msg.savedOpenMessageIndex === "number" && Number.isFinite(msg.savedOpenMessageIndex)
           ? Math.max(0, Math.floor(msg.savedOpenMessageIndex))
           : null;
+      const revealTarget = normalizeRevealTarget(msg.revealTarget);
       debugLoggingEnabled = msg.debugLoggingEnabled === true;
       const isRestore = typeof restoreScrollY === "number" || typeof restoreSelectedMessageIndex === "number";
       let shouldPreserveUiState = preserveUiState || isRestore;
@@ -468,6 +553,9 @@
       chatOpenPosition = normalizeChatOpenPosition(msg.chatOpenPosition);
       autoRefreshAvailable = msg.autoRefreshAvailable === true;
       autoRefreshMode = normalizeAutoRefreshMode(msg.autoRefreshMode);
+      timeGuideEnabled = msg.timeGuideEnabled === true;
+      configuredPerformanceMode = normalizePerformanceMode(msg.chatPerformanceMode);
+      performanceStats = normalizePerformanceStats(msg.performanceStats);
       toolDisplayMode = msg.toolDisplayMode === "compactCards" ? "compactCards" : "detailsOnly";
       userLongMessageFolding = normalizeLongMessageFoldingMode(
         typeof msg.userLongMessageFolding === "string" ? msg.userLongMessageFolding : msg.longMessageFolding,
@@ -481,6 +569,7 @@
       isPinned = !!msg.isPinned;
       detailsLoaded = msg.detailsLoaded === true || msg.detailMode === "full";
       detailReloadPending = false;
+      updateEffectivePerformanceMode({ showAutoToast: true });
       debugChatOpenPosition("sessionData", {
         session: getDebugSessionName(nextModelPath),
         mode: chatOpenPosition,
@@ -490,7 +579,7 @@
         restore: isRestore,
         preserveUiState: shouldPreserveUiState,
         autoScrollToBottom,
-        reveal: typeof msg.revealMessageIndex === "number",
+        reveal: typeof msg.revealMessageIndex === "number" || !!revealTarget,
       });
       expandedNote = shouldPreserveUiState ? prevExpandedNote : false;
       selectedMessageIndex = shouldPreserveUiState
@@ -499,6 +588,8 @@
           : prevSelectedMessageIndex
         : typeof msg.revealMessageIndex === "number"
           ? msg.revealMessageIndex
+          : revealTarget && typeof revealTarget.messageIndex === "number"
+            ? revealTarget.messageIndex
           : null;
       expandedMessageIndexes = shouldPreserveUiState ? prevExpandedMessageIndexes : new Set();
       expandedPatchEntries = shouldPreserveUiState ? prevExpandedPatchEntries : new Set();
@@ -508,9 +599,15 @@
       if (!shouldPreserveUiState && typeof msg.revealMessageIndex === "number") {
         expandedMessageIndexes.add(msg.revealMessageIndex);
       }
+      if (!shouldPreserveUiState && revealTarget) {
+        if (typeof revealTarget.messageIndex === "number") expandedMessageIndexes.add(revealTarget.messageIndex);
+        if (typeof revealTarget.entryId === "string" && revealTarget.entryId) {
+          expandedPatchEntries.add(revealTarget.entryId);
+        }
+      }
 
       // On reload, preserve the current UI state (details visibility); on normal render, auto-determine as before.
-      showDetails = shouldPreserveUiState ? prevShowDetails : shouldAutoShowDetails(model, selectedMessageIndex);
+      showDetails = shouldPreserveUiState ? prevShowDetails : shouldAutoShowDetails(model, selectedMessageIndex, revealTarget);
       updateToolbar();
       render();
       const restoredDetailAnchor = autoScrollToBottom
@@ -525,11 +622,16 @@
         } else if (!restoredDetailAnchor) {
           if (typeof restoreScrollY === "number") restoreScroll(restoreScrollY);
         }
+      } else if (revealTarget) {
+        revealPatchTarget(revealTarget);
       } else if (typeof msg.revealMessageIndex === "number") {
         revealMessage(msg.revealMessageIndex);
       } else if (chatOpenPosition === "top") {
         debugChatOpenPosition("restoreTop", { reason: "mode", session: getDebugSessionName(nextModelPath) });
         restoreScroll(0);
+      } else if (chatOpenPosition === "latest") {
+        debugChatOpenPosition("restoreLatest", { reason: "mode", session: getDebugSessionName(nextModelPath) });
+        restoreScrollToLatestBoundary();
       } else {
         const restoredIndex = restoreSavedChatOpenPosition(nextModelPath, savedOpenMessageIndex);
         if (typeof restoredIndex === "number") {
@@ -544,6 +646,9 @@
       debugLoggingEnabled = msg.debugLoggingEnabled === true;
       chatOpenPosition = normalizeChatOpenPosition(msg.chatOpenPosition);
       autoRefreshAvailable = msg.autoRefreshAvailable === true;
+      timeGuideEnabled = msg.timeGuideEnabled === true;
+      configuredPerformanceMode = normalizePerformanceMode(msg.chatPerformanceMode);
+      updateEffectivePerformanceMode({ showAutoToast: true });
       if (msg.toolDisplayMode === "compactCards" || msg.toolDisplayMode === "detailsOnly") {
         toolDisplayMode = msg.toolDisplayMode;
       }
@@ -565,8 +670,16 @@
       requestReload({ followLatest: msg.mode === "follow" });
       return;
     }
+    if (msg.type === "patchEntryDetails") {
+      handlePatchEntryDetailsMessage(msg);
+      return;
+    }
+    if (msg.type === "patchEntryDetailsFailed") {
+      handlePatchEntryDetailsFailedMessage(msg);
+      return;
+    }
     if (msg.type === "copied") {
-      showToast(i18n.copied || "Copied.");
+      showToast(i18n.copied || "Copied.", { key: "copied" });
       return;
     }
     if (msg.type === "imageData") {
@@ -612,49 +725,43 @@
     const pinTooltip = isPinned
       ? i18n.unpinTooltip || pinLabel
       : i18n.pinTooltip || pinLabel;
-    const pinIcon = isPinned ? UNPIN_ICON_SVG : PIN_ICON_SVG;
-    setToolbarButtonWithIcon(btnPinToggle, pinLabel, pinIcon);
-    btnPinToggle.title = pinTooltip;
-    btnPinToggle.setAttribute("aria-label", pinTooltip);
+    setToolbarIconButton(btnPinToggle, PIN_ICON_SVG, pinTooltip);
+    btnPinToggle.setAttribute("aria-pressed", isPinned ? "true" : "false");
+
+    if (btnCustomTitle instanceof HTMLElement) {
+      const customTitleLabel = getSafeUiText(i18n.customTitle, "Custom title");
+      const customTitleTooltip = getSafeUiText(i18n.customTitleTooltip, customTitleLabel);
+      setToolbarIconButton(btnCustomTitle, CUSTOM_TITLE_ICON_SVG, customTitleTooltip);
+    }
 
     const pageSearchLabel = getSafeUiText(i18n.pageSearch, "Find");
     const pageSearchTooltip = getSafeUiText(i18n.pageSearchTooltip, "Toggle in-page search");
-    btnPageSearch.innerHTML = SEARCH_ICON_SVG;
-    btnPageSearch.title = pageSearchTooltip;
-    btnPageSearch.setAttribute("aria-label", pageSearchTooltip);
+    setToolbarIconButton(btnPageSearch, SEARCH_ICON_SVG, pageSearchTooltip);
+    updatePerformanceToolbarButton();
     if (btnAutoRefresh instanceof HTMLElement) {
       const autoRefreshTooltip = getAutoRefreshTooltip(autoRefreshMode);
       btnAutoRefresh.hidden = !autoRefreshAvailable;
-      btnAutoRefresh.innerHTML = AUTO_REFRESH_ICON_SVG;
+      setToolbarIconButton(btnAutoRefresh, AUTO_REFRESH_ICON_SVG, autoRefreshTooltip);
       btnAutoRefresh.dataset.mode = autoRefreshMode;
-      btnAutoRefresh.title = autoRefreshTooltip;
-      btnAutoRefresh.setAttribute("aria-label", autoRefreshTooltip);
       btnAutoRefresh.setAttribute("aria-pressed", autoRefreshMode === "off" ? "false" : "true");
     }
 
     const markdownLabel = i18n.markdown || "Markdown";
     const markdownTooltip = i18n.markdownTooltip || markdownLabel;
-    setToolbarButtonWithIcon(btnMarkdown, markdownLabel, MARKDOWN_ICON_SVG);
-    btnMarkdown.title = markdownTooltip;
-    btnMarkdown.setAttribute("aria-label", markdownTooltip);
+    setToolbarIconButton(btnMarkdown, MARKDOWN_ICON_SVG, markdownTooltip);
     const copyResumeLabel = i18n.copyResume || "Copy prompt";
     // Show a descriptive tooltip so the button intent is clear.
     const copyResumeTooltip = i18n.copyResumeTooltip || copyResumeLabel;
-    setToolbarButtonWithIcon(btnCopyResume, copyResumeLabel, COPY_ICON_SVG);
-    btnCopyResume.title = copyResumeTooltip;
-    btnCopyResume.setAttribute("aria-label", copyResumeTooltip);
+    setToolbarIconButton(btnCopyResume, COPY_ICON_SVG, copyResumeTooltip);
     const scrollTopLabel = i18n.scrollTop || "Top";
     const scrollTopTooltip = i18n.scrollTopTooltip || scrollTopLabel;
-    btnScrollTop.title = scrollTopTooltip;
-    btnScrollTop.setAttribute("aria-label", scrollTopTooltip);
+    setToolbarIconButton(btnScrollTop, SCROLL_TOP_ICON_SVG, scrollTopTooltip);
     const scrollBottomLabel = i18n.scrollBottom || "Bottom";
     const scrollBottomTooltip = i18n.scrollBottomTooltip || scrollBottomLabel;
-    btnScrollBottom.title = scrollBottomTooltip;
-    btnScrollBottom.setAttribute("aria-label", scrollBottomTooltip);
+    setToolbarIconButton(btnScrollBottom, SCROLL_BOTTOM_ICON_SVG, scrollBottomTooltip);
     const reloadLabel = i18n.reload || "Reload";
     const reloadTooltip = i18n.reloadTooltip || reloadLabel;
-    btnReload.title = reloadTooltip;
-    btnReload.setAttribute("aria-label", reloadTooltip);
+    setToolbarIconButton(btnReload, RELOAD_ICON_SVG, reloadTooltip);
     const detailsLabel = showDetails
       ? i18n.detailsOn || "Hide details"
       : i18n.detailsOff || "Show details";
@@ -662,9 +769,8 @@
       ? i18n.detailsOnTooltip || detailsLabel
       : i18n.detailsOffTooltip || detailsLabel;
     const detailsIcon = showDetails ? DETAILS_ON_ICON_SVG : DETAILS_OFF_ICON_SVG;
-    setToolbarButtonWithIcon(btnToggleDetails, detailsLabel, detailsIcon);
-    btnToggleDetails.title = detailsTooltip;
-    btnToggleDetails.setAttribute("aria-label", detailsTooltip);
+    setToolbarIconButton(btnToggleDetails, detailsIcon, detailsTooltip);
+    btnToggleDetails.setAttribute("aria-pressed", showDetails ? "true" : "false");
     if (pageSearchInputEl instanceof HTMLInputElement) {
       const searchPlaceholder = getSafeUiText(i18n.pageSearchPlaceholder, "Find in this view");
       pageSearchInputEl.placeholder = searchPlaceholder;
@@ -676,12 +782,9 @@
     const prevTooltip = getSafeUiText(i18n.pageSearchPrevTooltip, "Previous match");
     const nextTooltip = getSafeUiText(i18n.pageSearchNextTooltip, "Next match");
     const closeTooltip = getSafeUiText(i18n.pageSearchCloseTooltip, "Close search");
-    btnPageSearchPrev.title = prevTooltip;
-    btnPageSearchPrev.setAttribute("aria-label", prevTooltip);
-    btnPageSearchNext.title = nextTooltip;
-    btnPageSearchNext.setAttribute("aria-label", nextTooltip);
-    btnPageSearchClose.title = closeTooltip;
-    btnPageSearchClose.setAttribute("aria-label", closeTooltip);
+    setToolbarIconButton(btnPageSearchPrev, NAV_UP_ICON_SVG, prevTooltip);
+    setToolbarIconButton(btnPageSearchNext, NAV_DOWN_ICON_SVG, nextTooltip);
+    setToolbarIconButton(btnPageSearchClose, CLOSE_ICON_SVG, closeTooltip);
     updatePageSearchStatus();
     scheduleToolbarCompactMode();
   }
@@ -698,6 +801,183 @@
     text.textContent = label;
 
     button.replaceChildren(icon, text);
+  }
+
+  function setToolbarIconButton(button, iconSvg, tooltip) {
+    if (!(button instanceof HTMLElement)) return;
+    const safeTooltip = typeof tooltip === "string" && tooltip.trim() ? tooltip.trim() : "";
+    button.innerHTML = iconSvg;
+    if (safeTooltip) {
+      button.title = safeTooltip;
+      button.setAttribute("aria-label", safeTooltip);
+    }
+  }
+
+  function updatePerformanceToolbarButton() {
+    if (!(btnPerformanceMode instanceof HTMLElement)) return;
+    const simplified = effectivePerformanceMode === "simplified";
+    const tooltip = getPerformanceTooltip();
+    setToolbarIconButton(btnPerformanceMode, simplified ? PERFORMANCE_SIMPLIFIED_ICON_SVG : PERFORMANCE_NORMAL_ICON_SVG, tooltip);
+    btnPerformanceMode.dataset.mode = effectivePerformanceMode;
+    btnPerformanceMode.dataset.configuredMode = configuredPerformanceMode;
+    btnPerformanceMode.setAttribute("aria-pressed", simplified ? "true" : "false");
+  }
+
+  function toggleTemporaryPerformanceMode() {
+    temporaryPerformanceMode = getNextTemporaryPerformanceMode();
+    updateEffectivePerformanceMode();
+    updateToolbar();
+    if (effectivePerformanceMode === "normal") restoreHibernatedPatchBodies({ force: true });
+    showToast(getPerformanceSwitchToast(), { durationMs: 2400, key: "performanceMode" });
+  }
+
+  function updateEffectivePerformanceMode(options = {}) {
+    const previousMode = effectivePerformanceMode;
+    const nextMode = resolveEffectivePerformanceMode();
+    effectivePerformanceMode = nextMode;
+    document.body.classList.toggle("performanceSimplified", nextMode === "simplified");
+
+    if (
+      options.showAutoToast === true &&
+      getSelectedPerformanceMode() === "auto" &&
+      nextMode === "simplified" &&
+      !autoPerformanceToastShown
+    ) {
+      autoPerformanceToastShown = true;
+      showToast(getSafeUiText(i18n.performanceLargeHistoryToast, "Using simplified view for this large history."), {
+        durationMs: 3600,
+        key: "performanceMode",
+      });
+    }
+
+    if (previousMode === "simplified" && nextMode === "normal") restoreHibernatedPatchBodies({ force: true });
+    debugPerformanceModeIfChanged(previousMode, nextMode);
+  }
+
+  function getNextTemporaryPerformanceMode() {
+    const currentMode = getSelectedPerformanceMode();
+    if (currentMode === "auto") return "normal";
+    if (currentMode === "normal") return "simplified";
+    return "auto";
+  }
+
+  function getPerformanceSwitchToast() {
+    if (temporaryPerformanceMode === "auto") {
+      return getSafeUiText(i18n.performanceSwitchedAuto, "Set this view's performance mode to Auto.");
+    }
+    return temporaryPerformanceMode === "simplified"
+      ? getSafeUiText(i18n.performanceSwitchedSimplified, "Set this view's performance mode to Simplified.")
+      : getSafeUiText(i18n.performanceSwitchedNormal, "Set this view's performance mode to Normal.");
+  }
+
+  function resolveEffectivePerformanceMode() {
+    if (temporaryPerformanceMode === "normal" || temporaryPerformanceMode === "simplified") return temporaryPerformanceMode;
+    if (temporaryPerformanceMode === "auto") return shouldAutoUseSimplifiedPerformance() ? "simplified" : "normal";
+    if (configuredPerformanceMode === "normal" || configuredPerformanceMode === "simplified") return configuredPerformanceMode;
+    return shouldAutoUseSimplifiedPerformance() ? "simplified" : "normal";
+  }
+
+  function getPerformanceTooltip() {
+    if (temporaryPerformanceMode === "normal") return getSafeUiText(i18n.performanceNormal, "Performance: Normal");
+    if (temporaryPerformanceMode === "simplified") return getSafeUiText(i18n.performanceSimplified, "Performance: Simplified");
+    if (temporaryPerformanceMode === "auto") {
+      return effectivePerformanceMode === "simplified"
+        ? getSafeUiText(i18n.performanceAutoSimplified, "Performance: Auto (Simplified)")
+        : getSafeUiText(i18n.performanceAutoNormal, "Performance: Auto (Normal)");
+    }
+    if (configuredPerformanceMode === "normal") return getSafeUiText(i18n.performanceNormal, "Performance: Normal");
+    if (configuredPerformanceMode === "simplified") return getSafeUiText(i18n.performanceSimplified, "Performance: Simplified");
+    return effectivePerformanceMode === "simplified"
+      ? getSafeUiText(i18n.performanceAutoSimplified, "Performance: Auto (Simplified)")
+      : getSafeUiText(i18n.performanceAutoNormal, "Performance: Auto (Normal)");
+  }
+
+  function getSelectedPerformanceMode() {
+    return temporaryPerformanceMode === "auto" || temporaryPerformanceMode === "normal" || temporaryPerformanceMode === "simplified"
+      ? temporaryPerformanceMode
+      : configuredPerformanceMode;
+  }
+
+  function shouldAutoUseSimplifiedPerformance() {
+    return (
+      readPerformanceNumber("fileSizeBytes") >= SIMPLIFIED_FILE_SIZE_BYTES ||
+      readPerformanceNumber("itemCount") >= SIMPLIFIED_ITEM_COUNT ||
+      readPerformanceNumber("diffEntryCount") >= SIMPLIFIED_DIFF_ENTRY_COUNT ||
+      readPerformanceNumber("diffLineEstimate") >= SIMPLIFIED_DIFF_LINE_ESTIMATE ||
+      readPerformanceNumber("imageCount") >= SIMPLIFIED_IMAGE_COUNT
+    );
+  }
+
+  function debugPerformanceModeIfChanged(previousMode, nextMode) {
+    if (!debugLoggingEnabled) return;
+    const reason = getPerformanceSimplifiedReason();
+    const signature = [
+      configuredPerformanceMode,
+      temporaryPerformanceMode || "",
+      nextMode,
+      reason,
+      readPerformanceNumber("fileSizeBytes"),
+      readPerformanceNumber("itemCount"),
+      readPerformanceNumber("diffEntryCount"),
+      readPerformanceNumber("diffLineEstimate"),
+      readPerformanceNumber("imageCount"),
+    ].join("|");
+    if (signature === lastPerformanceDebugSignature) return;
+    lastPerformanceDebugSignature = signature;
+    debugWebview("chatPerformance", "effective", {
+      configured: configuredPerformanceMode,
+      temporary: temporaryPerformanceMode || "none",
+      previous: previousMode,
+      effective: nextMode,
+      reason,
+      fileSizeBytes: readPerformanceNumber("fileSizeBytes"),
+      items: readPerformanceNumber("itemCount"),
+      patchEntries: readPerformanceNumber("diffEntryCount"),
+      diffLineEstimate: readPerformanceNumber("diffLineEstimate"),
+      images: readPerformanceNumber("imageCount"),
+    });
+  }
+
+  function getPerformanceSimplifiedReason() {
+    if (effectivePerformanceMode !== "simplified") return "none";
+    if (getSelectedPerformanceMode() === "simplified") return "manual";
+    if (readPerformanceNumber("fileSizeBytes") >= SIMPLIFIED_FILE_SIZE_BYTES) return "fileSizeBytes";
+    if (readPerformanceNumber("itemCount") >= SIMPLIFIED_ITEM_COUNT) return "itemCount";
+    if (readPerformanceNumber("diffEntryCount") >= SIMPLIFIED_DIFF_ENTRY_COUNT) return "diffEntryCount";
+    if (readPerformanceNumber("diffLineEstimate") >= SIMPLIFIED_DIFF_LINE_ESTIMATE) return "diffLineEstimate";
+    if (readPerformanceNumber("imageCount") >= SIMPLIFIED_IMAGE_COUNT) return "imageCount";
+    return "none";
+  }
+
+  function readPerformanceNumber(key) {
+    const value = performanceStats && typeof performanceStats === "object" ? Number(performanceStats[key]) : 0;
+    return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  }
+
+  function normalizePerformanceMode(value) {
+    return value === "normal" || value === "simplified" ? value : "auto";
+  }
+
+  function normalizePerformanceStats(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return {
+      fileSizeBytes: normalizePerformanceStatNumber(source.fileSizeBytes),
+      itemCount: normalizePerformanceStatNumber(source.itemCount),
+      messageChars: normalizePerformanceStatNumber(source.messageChars),
+      diffGroupCount: normalizePerformanceStatNumber(source.diffGroupCount),
+      diffEntryCount: normalizePerformanceStatNumber(source.diffEntryCount),
+      diffLineEstimate: normalizePerformanceStatNumber(source.diffLineEstimate),
+      imageCount: normalizePerformanceStatNumber(source.imageCount),
+    };
+  }
+
+  function normalizePerformanceStatNumber(value) {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? Math.max(0, Math.floor(numberValue)) : 0;
+  }
+
+  function isSimplifiedPerformanceMode() {
+    return effectivePerformanceMode === "simplified";
   }
 
   function scrollToBoundary(direction) {
@@ -740,7 +1020,7 @@
   }
 
   function shouldRequestFullDetailsOnReload() {
-    return showDetails || expandedPatchEntries.size > 0;
+    return showDetails;
   }
 
   function requestFullDetailsIfNeeded(options = {}) {
@@ -760,6 +1040,12 @@
 
   function getScrollTop() {
     return Math.max(0, Math.floor(Number(getScrollRoot().scrollTop) || 0));
+  }
+
+  function handleScrollRootScroll() {
+    schedulePersistChatOpenPosition();
+    if (isSimplifiedPerformanceMode()) restoreHibernatedPatchBodies();
+    if (timeGuideEnabled && timeGuide) timeGuide.handleScroll();
   }
 
   function schedulePersistChatOpenPosition() {
@@ -1004,6 +1290,7 @@
     const needsCompact = toolbarEl.scrollWidth > toolbarEl.clientWidth + 1;
     toolbarEl.classList.toggle("toolbarCompact", needsCompact);
     document.documentElement.style.setProperty("--chv-toolbar-height", `${toolbarEl.offsetHeight}px`);
+    updateTimeGuide({ afterPaint: true });
   }
 
   function normalizePageSearchPanelWidth(value) {
@@ -1099,7 +1386,16 @@
     resetPageSearchState();
     if (imagePreview || isImagePreviewOpen()) closeImagePreview();
     resetImageDataCache();
+    resetPatchEntryDetailsCache();
+    temporaryPerformanceMode = null;
     pendingDetailScrollAnchor = null;
+  }
+
+  function resetPatchEntryDetailsCache() {
+    patchEntrySummaryById.clear();
+    patchEntryDetailsById.clear();
+    patchEntryDetailsLoading.clear();
+    patchEntryDetailsFailed.clear();
   }
 
   function resetPageSearchState() {
@@ -1228,7 +1524,7 @@
 
     const parent = node.parentElement;
     if (!(parent instanceof HTMLElement)) return false;
-    if (parent.closest("#pageSearchBar")) return false;
+    if (parent.closest("#pageSearchBar, .dateGuide")) return false;
     if (parent.closest("script, style, textarea, input, select, button")) return false;
     if (parent.closest("mark.pageSearchMatch")) return false;
     if (parent.closest("[hidden]")) return false;
@@ -1494,12 +1790,15 @@
 
   function render() {
     if (lazyImageObserver) lazyImageObserver.disconnect();
+    resetDeferredRenderWork({ nextGeneration: true });
+    prepareTimeGuideForTimelineRender();
     if (annotationEl) annotationEl.textContent = "";
     metaEl.textContent = "";
     timelineEl.textContent = "";
     pageSearchMatches = [];
     pageSearchResults = [];
     activePageSearchResultIndex = -1;
+    patchEntrySummaryById.clear();
     if (!model) return;
 
     renderAnnotationHeader(model.annotation);
@@ -1524,6 +1823,7 @@
       if (rendered) timelineEl.appendChild(rendered);
     }
     schedulePatchLayoutSync();
+    updateTimeGuide({ afterPaint: true, rebuildItems: true });
     if (isPageSearchOpen()) refreshPageSearchResults({ preserveIndex: true, reveal: false });
     else {
       renderPageSearchResults();
@@ -1646,6 +1946,273 @@
     return rendered;
   }
 
+  function getTimeGuideTargetElement(rendered) {
+    if (!(rendered instanceof HTMLElement)) return null;
+    const bubble = rendered.querySelector(".bubble, .usageCard, .environmentCard");
+    return bubble instanceof HTMLElement ? bubble : rendered;
+  }
+
+  function getTimeGuideItems() {
+    return timeGuideEnabled ? timeGuideItems : [];
+  }
+
+  function rebuildTimeGuideItems() {
+    if (!timeGuideEnabled || !(timelineEl instanceof HTMLElement) || !model || !Array.isArray(model.items)) {
+      timeGuideItems = [];
+      return;
+    }
+
+    const startedAt = performance.now();
+    timeGuideItems = Array.from(timelineEl.querySelectorAll("[data-item-index]"))
+      .filter((element) => element instanceof HTMLElement)
+      .map((element, index) => {
+        const itemIndex = Number(element.dataset.itemIndex);
+        const item = Number.isFinite(itemIndex) ? model.items[itemIndex] : null;
+        const timestampIso = item && typeof item.timestampIso === "string" ? item.timestampIso.trim() : "";
+        const target = getTimeGuideTargetElement(element);
+        if (!timestampIso || !(target instanceof HTMLElement)) return null;
+        return {
+          key: element.dataset.cardKey || `timeline-${index}`,
+          itemIndex: Number.isFinite(itemIndex) ? itemIndex : index,
+          timestampIso,
+          title: buildTimeGuideItemTitle(item, Number.isFinite(itemIndex) ? itemIndex : index),
+          element: target,
+        };
+      })
+      .filter((item) => item && item.element instanceof HTMLElement);
+    debugWebview("timeGuide", "buildDone", {
+      scope: "chat",
+      items: timeGuideItems.length,
+      totalMs: Math.round(performance.now() - startedAt),
+    });
+  }
+
+  function ensureTimeGuide() {
+    if (timeGuide) return timeGuide;
+    if (!window.CodexHistoryTimeGuide || typeof window.CodexHistoryTimeGuide.create !== "function") return null;
+    timeGuide = window.CodexHistoryTimeGuide.create({
+      mode: "timeline",
+      positionStrategy: "scroll",
+      minItems: 2,
+      requireScrollable: true,
+      getHost: () => document.body,
+      getScrollRoot,
+      getContentElement: () => timelineEl,
+      getTimeZone,
+      getAriaLabel: () => getSafeUiText(i18n.timeGuideDates, "Dates"),
+      getItems: getTimeGuideItems,
+    });
+    return timeGuide;
+  }
+
+  function isRestoreCoverBlockingTimeGuide() {
+    return restoreCoverActive || !!(restoreCoverEl instanceof HTMLElement && !restoreCoverEl.hidden);
+  }
+
+  function mergePendingTimeGuideOptions(current, next) {
+    return {
+      afterPaint: true,
+      rebuildItems: !!(current && current.rebuildItems) || next.rebuildItems === true,
+    };
+  }
+
+  function showRestoreCover() {
+    if (!(restoreCoverEl instanceof HTMLElement)) return;
+    cancelRestoreCoverRelease();
+    cancelDeferredRenderSchedule();
+    if (isSimplifiedPerformanceMode()) hibernateOpenPatchBodies();
+    restoreCoverActive = true;
+    restoreCoverShownAt = performance.now();
+    restoreCoverEl.hidden = false;
+    document.body.classList.add("restoreCoverActive");
+  }
+
+  function cancelRestoreCoverRelease() {
+    if (restoreCoverFrame) {
+      cancelAnimationFrame(restoreCoverFrame);
+      restoreCoverFrame = 0;
+    }
+    if (restoreCoverTimer) {
+      window.clearTimeout(restoreCoverTimer);
+      restoreCoverTimer = 0;
+    }
+  }
+
+  function scheduleRestoreCoverRelease() {
+    if (!(restoreCoverEl instanceof HTMLElement) || restoreCoverEl.hidden) return;
+    cancelRestoreCoverRelease();
+    let lastSignature = "";
+    let stableFrames = 0;
+    const startedAt = performance.now();
+    const waitForStableLayout = () => {
+      restoreCoverFrame = 0;
+      if (!(restoreCoverEl instanceof HTMLElement) || restoreCoverEl.hidden) return;
+
+      const signature = getRestoreCoverLayoutSignature();
+      if (signature && signature === lastSignature) stableFrames += 1;
+      else {
+        lastSignature = signature;
+        stableFrames = 0;
+      }
+
+      const now = performance.now();
+      const minElapsed = now - restoreCoverShownAt >= RESTORE_COVER_MIN_VISIBLE_MS;
+      const timedOut = now - startedAt >= RESTORE_COVER_MAX_WAIT_MS;
+      if ((minElapsed && stableFrames >= RESTORE_COVER_STABLE_FRAMES) || timedOut) {
+        releaseRestoreCover({ waitMs: now - restoreCoverShownAt, timedOut });
+        return;
+      }
+
+      restoreCoverFrame = requestAnimationFrame(waitForStableLayout);
+    };
+    restoreCoverFrame = requestAnimationFrame(waitForStableLayout);
+  }
+
+  function getRestoreCoverLayoutSignature() {
+    const root = getScrollRoot();
+    const toolbarHeight = toolbarEl instanceof HTMLElement ? toolbarEl.offsetHeight : 0;
+    const rootWidth = root instanceof HTMLElement ? root.clientWidth : 0;
+    const rootHeight = root instanceof HTMLElement ? root.clientHeight : 0;
+    return [window.innerWidth, window.innerHeight, rootWidth, rootHeight, toolbarHeight].join("x");
+  }
+
+  function releaseRestoreCover(details = {}) {
+    restoreCoverFrame = 0;
+    restoreCoverActive = false;
+    document.body.classList.remove("restoreCoverActive");
+    debugWebview("restoreCover", "release", {
+      scope: "chat",
+      waitMs: Math.round(Number(details.waitMs || 0)),
+      timedOut: details.timedOut === true,
+    });
+    restoreCoverTimer = window.setTimeout(() => {
+      restoreCoverTimer = 0;
+      if (!restoreCoverActive && restoreCoverEl instanceof HTMLElement) restoreCoverEl.hidden = true;
+      flushTimeGuideAfterRestoreCover();
+    }, RESTORE_COVER_HIDE_DELAY_MS);
+  }
+
+  function flushTimeGuideAfterRestoreCover() {
+    const pending = pendingTimeGuideAfterRestoreCover;
+    pendingTimeGuideAfterRestoreCover = null;
+    if (pending) updateTimeGuide(pending);
+    resumeDeferredRenderWork();
+    if (isSimplifiedPerformanceMode()) restoreHibernatedPatchBodies();
+  }
+
+  function prepareTimeGuideForTimelineRender() {
+    cancelPendingTimeGuideUpdate();
+    timeGuideUpdateNeedsRebuild = false;
+    timeGuideItems = [];
+    if (timeGuide) {
+      timeGuide.dispose();
+      timeGuide = null;
+    }
+  }
+
+  function cancelPendingTimeGuideUpdate() {
+    timeGuideUpdateGeneration += 1;
+    if (timeGuideUpdateFrame) {
+      cancelAnimationFrame(timeGuideUpdateFrame);
+      timeGuideUpdateFrame = 0;
+    }
+    if (timeGuideUpdateTimer) {
+      window.clearTimeout(timeGuideUpdateTimer);
+      timeGuideUpdateTimer = 0;
+    }
+    if (timeGuideUpdateIdle) {
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(timeGuideUpdateIdle);
+      timeGuideUpdateIdle = 0;
+    }
+  }
+
+  function updateTimeGuide(options = {}) {
+    if (!timeGuideEnabled) {
+      cancelPendingTimeGuideUpdate();
+      timeGuideUpdateNeedsRebuild = false;
+      pendingTimeGuideAfterRestoreCover = null;
+      timeGuideItems = [];
+      if (timeGuide) {
+        timeGuide.dispose();
+        timeGuide = null;
+      }
+      return;
+    }
+
+    if (isRestoreCoverBlockingTimeGuide()) {
+      cancelPendingTimeGuideUpdate();
+      pendingTimeGuideAfterRestoreCover = mergePendingTimeGuideOptions(pendingTimeGuideAfterRestoreCover, options);
+      return;
+    }
+
+    timeGuideUpdateNeedsRebuild = timeGuideUpdateNeedsRebuild || options.rebuildItems === true;
+    cancelPendingTimeGuideUpdate();
+    const generation = timeGuideUpdateGeneration;
+    const schedule = () => {
+      if (generation !== timeGuideUpdateGeneration) return;
+      const shouldRebuild = timeGuideUpdateNeedsRebuild;
+      timeGuideUpdateNeedsRebuild = false;
+      if (shouldRebuild) rebuildTimeGuideItems();
+      if (!timeGuide && timeGuideItems.length === 0) return;
+      const guide = ensureTimeGuide();
+      if (guide) guide.scheduleUpdate();
+    };
+
+    if (options.afterPaint === true) {
+      timeGuideUpdateFrame = requestAnimationFrame(() => {
+        if (generation !== timeGuideUpdateGeneration) {
+          timeGuideUpdateFrame = 0;
+          return;
+        }
+        timeGuideUpdateFrame = requestAnimationFrame(() => {
+          timeGuideUpdateFrame = 0;
+          if (generation !== timeGuideUpdateGeneration) return;
+          if (timeGuideUpdateNeedsRebuild && typeof window.requestIdleCallback === "function") {
+            timeGuideUpdateIdle = window.requestIdleCallback(
+              () => {
+                timeGuideUpdateIdle = 0;
+                schedule();
+              },
+              { timeout: TIME_GUIDE_REBUILD_IDLE_TIMEOUT_MS },
+            );
+            return;
+          }
+          timeGuideUpdateTimer = window.setTimeout(
+            () => {
+              timeGuideUpdateTimer = 0;
+              schedule();
+            },
+            timeGuideUpdateNeedsRebuild ? TIME_GUIDE_REBUILD_FALLBACK_DELAY_MS : 0,
+          );
+        });
+      });
+      return;
+    }
+
+    schedule();
+  }
+
+  function buildTimeGuideItemTitle(item, itemIndex) {
+    if (!item || typeof item !== "object") return "";
+    if (item.type === "message") {
+      const role = item.role === "user" || item.role === "assistant" || item.role === "developer" ? item.role : "message";
+      const messageIndex = typeof item.messageIndex === "number" ? `#${item.messageIndex}` : "";
+      return [role, messageIndex].filter(Boolean).join(" ");
+    }
+    if (item.type === "patchGroup") {
+      return formatTemplate(i18n.patchGroupCount || "{0} changes", item.entryCount || 0);
+    }
+    if (item.type === "tool") {
+      const presentation = resolveToolPresentation(item);
+      const messageIndex = typeof item.messageIndex === "number" ? `#${item.messageIndex}` : "";
+      return [presentation.title, messageIndex].filter(Boolean).join(" ");
+    }
+    if (item.type === "usage") return getSafeUiText(i18n.usage, "Usage");
+    if (item.type === "environment") return getSafeUiText(i18n.environment, "Environment");
+    if (item.type === "note" && typeof item.title === "string" && item.title.trim()) return item.title.trim();
+    return `${getSafeUiText(i18n.roleMessage, "Message")} #${itemIndex + 1}`;
+  }
+
   function renderMessage(item, cardKey) {
     const role = item.role === "user" || item.role === "assistant" || item.role === "developer" ? item.role : "assistant";
     if (role !== "assistant" && !showDetails && item.isContext) return null;
@@ -1674,6 +2241,11 @@
     const roleTag = el("span", { className: "tag" });
     roleTag.textContent = role;
     metaTags.appendChild(roleTag);
+    if (typeof item.messageIndex === "number") {
+      const indexTag = el("span", { className: "tag" });
+      indexTag.textContent = `#${item.messageIndex}`;
+      metaTags.appendChild(indexTag);
+    }
     if (item.isContext) {
       const ctxTag = el("span", { className: "tag context" });
       ctxTag.textContent = "context";
@@ -2021,8 +2593,14 @@
     return wrap;
   }
 
+  function getImageAttachmentLabel(value) {
+    const label = typeof value === "string" ? value.trim() : "";
+    if (label && label !== "Image attachment" && label !== "image-attachment") return label;
+    return getSafeUiText(i18n.imageAttachmentLabel, "Image attachment");
+  }
+
   function renderMessageImage(image, previewImages, previewIndex) {
-    const label = typeof image.label === "string" && image.label.trim() ? image.label.trim() : "Image attachment";
+    const label = getImageAttachmentLabel(image.label);
     const imageId = getImageId(image);
     const src = getImageSrc(image);
 
@@ -2184,6 +2762,32 @@
     updateImageFailureElements(imageId);
   }
 
+  function handlePatchEntryDetailsMessage(msg) {
+    if (!isCurrentModelMessage(msg)) return;
+    const entryId = getPatchEntryId({ id: msg.entryId });
+    const entry = msg.entry && typeof msg.entry === "object" ? msg.entry : null;
+    if (!entryId || !entry) return;
+
+    patchEntryDetailsLoading.delete(entryId);
+    patchEntryDetailsFailed.delete(entryId);
+    patchEntryDetailsById.set(entryId, {
+      ...entry,
+      id: typeof entry.id === "string" && entry.id.trim() ? entry.id.trim() : entryId,
+      detailsOmitted: false,
+    });
+    refreshPatchEntryDetails(entryId);
+  }
+
+  function handlePatchEntryDetailsFailedMessage(msg) {
+    if (!isCurrentModelMessage(msg)) return;
+    const entryId = getPatchEntryId({ id: msg.entryId });
+    if (!entryId) return;
+
+    patchEntryDetailsLoading.delete(entryId);
+    patchEntryDetailsFailed.set(entryId, getSafeUiText(msg.message, i18n.patchDetailsLoadFailed || "Failed to load diff details."));
+    refreshPatchEntryDetails(entryId);
+  }
+
   function isCurrentModelMessage(msg) {
     const messagePath = typeof msg.fsPath === "string" ? msg.fsPath : "";
     const modelPath = model && typeof model.fsPath === "string" ? model.fsPath : "";
@@ -2210,7 +2814,7 @@
     if (!cached || !isSafeDataImageSrc(cached.src)) return;
     if (lazyImageObserver) lazyImageObserver.unobserve(frame);
 
-    const label = frame.dataset.imageLabel || cached.label || "Image attachment";
+    const label = getImageAttachmentLabel(frame.dataset.imageLabel || cached.label);
     const img = el("img", { className: "messageImage", alt: label, loading: "lazy" });
     img.src = cached.src;
     img.title = label;
@@ -2377,7 +2981,7 @@
   }
 
   function toPreviewImage(image) {
-    const label = typeof image.label === "string" && image.label.trim() ? image.label.trim() : "Image attachment";
+    const label = getImageAttachmentLabel(image.label);
     const imageId = getImageId(image);
     return {
       imageId,
@@ -2646,14 +3250,43 @@
 
   function renderPatchEntry(entry) {
     const details = el("details", { className: "patchEntry" });
-    const entryLanguage = inferPatchLanguage(entry);
-    details.open = expandedPatchEntries.has(entry.id);
+    const entryId = getPatchEntryId(entry);
+    if (entryId) {
+      details.dataset.patchEntryId = entryId;
+      patchEntrySummaryById.set(entryId, entry);
+    }
+    details.open = entryId ? expandedPatchEntries.has(entryId) : false;
     let body;
-    let bodyReady = false;
     const ensurePatchBody = () => {
-      if (!(body instanceof HTMLElement) || bodyReady) return;
-      populatePatchEntryBody(body, entry, entryLanguage);
-      bodyReady = true;
+      if (!(body instanceof HTMLElement)) return;
+      const renderEntry = resolvePatchEntryForDisplay(entry);
+      if (entry && entry.detailsOmitted && !hasLoadedPatchEntryDetails(entry)) {
+        if (patchEntryDetailsFailed.has(entryId)) {
+          renderPatchEntryDetailsError(body, entry);
+          return;
+        }
+        renderPatchEntryDetailsLoading(body, entry);
+        requestPatchEntryDetails(entry);
+        return;
+      }
+      scheduleDeferredPatchEntryBody(body, details, renderEntry, inferPatchLanguage(renderEntry));
+    };
+    const clearPatchBody = () => {
+      if (!(body instanceof HTMLElement)) return;
+      if (deferredPatchObserver) deferredPatchObserver.unobserve(body);
+      deferredPatchBodyRequests.delete(body);
+      removeDeferredRenderItemsForPrefix(buildDeferredPatchBodyKey(entry));
+      rememberPatchBodyHeight(body, resolvePatchEntryForDisplay(entry));
+      body.textContent = "";
+      body.classList.remove(
+        "patchEntryBody-deferred",
+        "patchEntryBody-rendering",
+        "patchEntryBody-status",
+        "patchEntryBody-hibernated",
+      );
+      body.removeAttribute("aria-busy");
+      body.removeAttribute("data-deferred-state");
+      body.style.removeProperty("min-height");
     };
     let summary;
     const applyPatchToggleLabel = () => {
@@ -2665,12 +3298,12 @@
       summary.setAttribute("aria-label", label);
     };
     details.addEventListener("toggle", () => {
-      if (details.open) expandedPatchEntries.add(entry.id);
-      else expandedPatchEntries.delete(entry.id);
-      if (details.open && entry.detailsOmitted) {
-        requestFullDetailsIfNeeded();
+      if (entryId) {
+        if (details.open) expandedPatchEntries.add(entryId);
+        else expandedPatchEntries.delete(entryId);
       }
       if (details.open) ensurePatchBody();
+      else clearPatchBody();
       applyPatchToggleLabel();
     });
 
@@ -2691,9 +3324,433 @@
     details.appendChild(summary);
 
     body = el("div", { className: "patchEntryBody" });
-    if (details.open) ensurePatchBody();
+    if (entryId) body.dataset.patchEntryId = entryId;
     details.appendChild(body);
+    if (details.open) ensurePatchBody();
     return details;
+  }
+
+  function resolvePatchEntryForDisplay(entry) {
+    const entryId = getPatchEntryId(entry);
+    return entryId && patchEntryDetailsById.has(entryId) ? patchEntryDetailsById.get(entryId) : entry;
+  }
+
+  function hasLoadedPatchEntryDetails(entry) {
+    const entryId = getPatchEntryId(entry);
+    return !!(entryId && patchEntryDetailsById.has(entryId));
+  }
+
+  function requestPatchEntryDetails(entry, options = {}) {
+    const entryId = getPatchEntryId(entry);
+    if (!entryId) return;
+    if (!options.force && (patchEntryDetailsById.has(entryId) || patchEntryDetailsLoading.has(entryId))) return;
+    patchEntryDetailsFailed.delete(entryId);
+    patchEntryDetailsLoading.add(entryId);
+    vscode.postMessage({
+      type: "loadPatchEntryDetails",
+      entry: buildPatchEntryDetailRequest(entry, entryId),
+    });
+  }
+
+  function buildPatchEntryDetailRequest(entry, entryId) {
+    return {
+      entryId,
+      callId: typeof entry.callId === "string" ? entry.callId : undefined,
+      path: typeof entry.path === "string" ? entry.path : undefined,
+      displayPath: typeof entry.displayPath === "string" ? entry.displayPath : undefined,
+      movePath: typeof entry.movePath === "string" ? entry.movePath : undefined,
+      moveDisplayPath: typeof entry.moveDisplayPath === "string" ? entry.moveDisplayPath : undefined,
+      changeType: typeof entry.changeType === "string" ? entry.changeType : undefined,
+    };
+  }
+
+  function renderPatchEntryDetailsLoading(body, entry) {
+    resetPatchEntryBodyStatus(body, entry);
+    body.setAttribute("aria-busy", "true");
+    body.appendChild(renderLazyDetailsPlaceholder());
+  }
+
+  function renderPatchEntryDetailsError(body, entry) {
+    resetPatchEntryBodyStatus(body, entry);
+    const entryId = getPatchEntryId(entry);
+    const wrap = el("div", { className: "patchEntryDetailsStatus" });
+    const message = el("span", {});
+    message.textContent =
+      (entryId && patchEntryDetailsFailed.get(entryId)) ||
+      getSafeUiText(i18n.patchDetailsLoadFailed, "Failed to load diff details.");
+    wrap.appendChild(message);
+    const retry = el("button", { type: "button", className: "patchEntryDetailsRetry" });
+    retry.textContent = getSafeUiText(i18n.patchDetailsRetry, "Retry");
+    retry.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (entryId) patchEntryDetailsFailed.delete(entryId);
+      renderPatchEntryDetailsLoading(body, entry);
+      requestPatchEntryDetails(entry, { force: true });
+    });
+    wrap.appendChild(retry);
+    body.appendChild(wrap);
+  }
+
+  function resetPatchEntryBodyStatus(body, entry) {
+    if (!(body instanceof HTMLElement)) return;
+    if (deferredPatchObserver) deferredPatchObserver.unobserve(body);
+    deferredPatchBodyRequests.delete(body);
+    removeDeferredRenderItemsForPrefix(buildDeferredPatchBodyKey(entry));
+    body.textContent = "";
+    body.classList.remove("patchEntryBody-deferred", "patchEntryBody-rendering", "patchEntryBody-hibernated");
+    body.classList.add("patchEntryBody-status");
+    body.removeAttribute("aria-busy");
+    body.removeAttribute("data-deferred-state");
+    body.style.removeProperty("min-height");
+  }
+
+  function refreshPatchEntryDetails(entryId) {
+    if (!entryId) return;
+    const summaryEntry = patchEntrySummaryById.get(entryId);
+    const loadedEntry = patchEntryDetailsById.get(entryId);
+    for (const body of document.querySelectorAll(".patchEntryBody[data-patch-entry-id]")) {
+      if (!(body instanceof HTMLElement) || body.dataset.patchEntryId !== entryId) continue;
+      const details = body.closest(".patchEntry");
+      if (!(details instanceof HTMLDetailsElement) || !details.open) continue;
+
+      if (loadedEntry) {
+        resetPatchEntryBodyStatus(body, loadedEntry);
+        body.classList.remove("patchEntryBody-status");
+        scheduleDeferredPatchEntryBody(body, details, loadedEntry, inferPatchLanguage(loadedEntry));
+        continue;
+      }
+      if (summaryEntry && patchEntryDetailsFailed.has(entryId)) renderPatchEntryDetailsError(body, summaryEntry);
+    }
+  }
+
+  function getPatchEntryId(entry) {
+    const id = entry && typeof entry.id === "string" ? entry.id.trim() : "";
+    return id.length > 0 && id.length <= 512 ? id : "";
+  }
+
+  function hibernateOpenPatchBodies() {
+    for (const body of document.querySelectorAll(".patchEntryBody[data-patch-entry-id]")) {
+      if (!(body instanceof HTMLElement)) continue;
+      if (body.dataset.deferredState === "hibernated") continue;
+      const details = body.closest("details.patchEntry");
+      if (!(details instanceof HTMLDetailsElement) || !details.open) continue;
+      if (body.classList.contains("patchEntryBody-status")) continue;
+      const entry = getPatchEntryForBody(body);
+      if (!entry || (entry.detailsOmitted && !hasLoadedPatchEntryDetails(entry))) continue;
+
+      const height = Math.ceil(body.getBoundingClientRect().height) || getEstimatedPatchBodyHeight(entry);
+      if (height > 0) {
+        patchBodyHeightByEntryId.set(getPatchEntryId(entry), height);
+        body.style.setProperty("min-height", `${height}px`);
+      }
+      if (deferredPatchObserver) deferredPatchObserver.unobserve(body);
+      deferredPatchBodyRequests.delete(body);
+      removeDeferredRenderItemsForPrefix(buildDeferredPatchBodyKey(entry));
+      body.textContent = "";
+      body.classList.remove("patchEntryBody-deferred", "patchEntryBody-rendering");
+      body.classList.add("patchEntryBody-hibernated");
+      body.removeAttribute("aria-busy");
+      body.dataset.deferredState = "hibernated";
+    }
+  }
+
+  function restoreHibernatedPatchBodies(options = {}) {
+    const force = options.force === true;
+    for (const body of document.querySelectorAll('.patchEntryBody[data-deferred-state="hibernated"]')) {
+      if (!(body instanceof HTMLElement)) continue;
+      if (!force && !isSimplifiedPerformanceMode()) continue;
+      const details = body.closest("details.patchEntry");
+      if (!(details instanceof HTMLDetailsElement) || !details.open) continue;
+      const entry = getPatchEntryForBody(body);
+      if (!entry) continue;
+      scheduleDeferredPatchEntryBody(body, details, entry, inferPatchLanguage(entry));
+    }
+  }
+
+  function getPatchEntryForBody(body) {
+    if (!(body instanceof HTMLElement)) return null;
+    const entryId = typeof body.dataset.patchEntryId === "string" ? body.dataset.patchEntryId : "";
+    if (!entryId) return null;
+    const summaryEntry = patchEntrySummaryById.get(entryId);
+    return summaryEntry ? resolvePatchEntryForDisplay(summaryEntry) : patchEntryDetailsById.get(entryId) || null;
+  }
+
+  function scheduleDeferredPatchEntryBody(body, details, entry, entryLanguage) {
+    if (!(body instanceof HTMLElement) || !(details instanceof HTMLElement) || !entry) return;
+    const key = buildDeferredPatchBodyKey(entry);
+    if (body.dataset.deferredState === "rendered" || body.dataset.deferredState === "queued") return;
+
+    body.dataset.deferredState = "queued";
+    body.dataset.deferredKey = key;
+    body.classList.remove("patchEntryBody-hibernated", "patchEntryBody-status");
+    body.classList.add("patchEntryBody-deferred");
+    body.setAttribute("aria-busy", "true");
+    const estimatedHeight = getEstimatedPatchBodyHeight(entry);
+    body.style.setProperty("min-height", `${estimatedHeight}px`);
+    deferredPatchBodyRequests.set(body, {
+      key,
+      generation: deferredRenderGeneration,
+      details,
+      entry,
+      entryLanguage,
+    });
+
+    const observer = getDeferredPatchObserver();
+    if (observer) {
+      observer.observe(body);
+      return;
+    }
+
+    enqueueDeferredRender({
+      key,
+      generation: deferredRenderGeneration,
+      element: body,
+      render: () => beginDeferredPatchEntryBody(body, details, entry, entryLanguage),
+    });
+  }
+
+  function beginDeferredPatchEntryBody(body, details, entry, entryLanguage) {
+    if (!isPatchBodyRenderable(body, details)) return;
+    body.textContent = "";
+    body.classList.remove("patchEntryBody-deferred", "patchEntryBody-hibernated");
+    body.classList.add("patchEntryBody-rendering");
+    body.dataset.deferredState = "rendering";
+
+    if (entry && entry.detailsOmitted && !hasLoadedPatchEntryDetails(entry)) {
+      renderPatchEntryDetailsLoading(body, entry);
+      requestPatchEntryDetails(entry);
+      return;
+    }
+
+    if (entry.moveDisplayPath && entry.moveDisplayPath !== entry.displayPath) {
+      const movedTo = el("div", { className: "patchEntryMove" });
+      movedTo.textContent = formatTemplate(i18n.patchMovedTo || "Moved to: {0}", entry.moveDisplayPath);
+      body.appendChild(movedTo);
+    }
+
+    const hunks = Array.isArray(entry.hunks) ? entry.hunks : [];
+    if (hunks.length === 0) {
+      const empty = el("div", { className: "toolCardSecondary" });
+      empty.textContent = i18n.patchNoDiff || "No diff available";
+      body.appendChild(empty);
+      finalizeDeferredPatchEntryBody(body, entry);
+      return;
+    }
+
+    let pendingHunks = hunks.length;
+    const finalizeIfDone = () => {
+      pendingHunks -= 1;
+      if (pendingHunks <= 0) finalizeDeferredPatchEntryBody(body, entry);
+    };
+
+    hunks.forEach((hunk, hunkIndex) => {
+      enqueueDeferredRender({
+        key: `${buildDeferredPatchBodyKey(entry)}:hunk:${hunkIndex}`,
+        generation: deferredRenderGeneration,
+        element: body,
+        render: () => {
+          if (!isPatchBodyRenderable(body, details)) return;
+          const hunkEl = renderPatchHunk(entry, hunk, entryLanguage, hunkIndex);
+          body.appendChild(hunkEl);
+          syncPatchHunkLayout(hunkEl);
+          finalizeIfDone();
+        },
+      });
+    });
+  }
+
+  function finalizeDeferredPatchEntryBody(body, entry) {
+    if (!(body instanceof HTMLElement)) return;
+    if (deferredPatchObserver) deferredPatchObserver.unobserve(body);
+    deferredPatchBodyRequests.delete(body);
+    body.classList.remove("patchEntryBody-deferred", "patchEntryBody-rendering");
+    body.classList.remove("patchEntryBody-hibernated", "patchEntryBody-status");
+    body.dataset.deferredState = "rendered";
+    body.removeAttribute("aria-busy");
+    body.style.removeProperty("min-height");
+    rememberPatchBodyHeight(body, entry);
+    schedulePageSearchRefreshAfterDeferredRender();
+  }
+
+  function isPatchBodyRenderable(body, details) {
+    return body instanceof HTMLElement && body.isConnected && details instanceof HTMLDetailsElement && details.open;
+  }
+
+  function buildDeferredPatchBodyKey(entry) {
+    return `patch-body:${entry && entry.id ? entry.id : ""}`;
+  }
+
+  function getEstimatedPatchBodyHeight(entry) {
+    const key = entry && entry.id ? entry.id : "";
+    const cached = key ? patchBodyHeightByEntryId.get(key) : undefined;
+    const numeric = Number(cached);
+    return Number.isFinite(numeric) && numeric > 0 ? Math.ceil(numeric) : DEFERRED_PATCH_PLACEHOLDER_MIN_HEIGHT;
+  }
+
+  function rememberPatchBodyHeight(body, entry) {
+    if (!(body instanceof HTMLElement) || !entry || !entry.id) return;
+    const height = Math.ceil(body.getBoundingClientRect().height);
+    if (height > 0) patchBodyHeightByEntryId.set(entry.id, height);
+  }
+
+  function getDeferredPatchObserver() {
+    if (typeof IntersectionObserver !== "function") return null;
+    if (!(scrollRootEl instanceof HTMLElement)) return null;
+    if (deferredPatchObserver) return deferredPatchObserver;
+    deferredPatchObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || !(entry.target instanceof HTMLElement)) continue;
+          deferredPatchObserver?.unobserve(entry.target);
+          const request = deferredPatchBodyRequests.get(entry.target);
+          if (!request) continue;
+          enqueueDeferredRender({
+            key: request.key,
+            generation: request.generation,
+            element: entry.target,
+            render: () => beginDeferredPatchEntryBody(entry.target, request.details, request.entry, request.entryLanguage),
+          });
+        }
+      },
+      {
+        root: scrollRootEl,
+        rootMargin: DEFERRED_PATCH_ROOT_MARGIN,
+        threshold: 0,
+      },
+    );
+    return deferredPatchObserver;
+  }
+
+  function enqueueDeferredRender(item) {
+    if (!item || typeof item.key !== "string" || !item.key) return;
+    if (item.generation !== deferredRenderGeneration) return;
+    if (deferredRenderKeys.has(item.key)) return;
+    deferredRenderKeys.add(item.key);
+    deferredRenderQueue.push(item);
+    scheduleDeferredRenderWork();
+  }
+
+  function resetDeferredRenderWork(options = {}) {
+    if (options.nextGeneration === true) deferredRenderGeneration += 1;
+    deferredRenderQueue = [];
+    deferredRenderKeys.clear();
+    cancelDeferredRenderSchedule();
+    if (deferredPatchObserver) {
+      deferredPatchObserver.disconnect();
+      deferredPatchObserver = null;
+    }
+    if (deferredPageSearchRefreshTimer) {
+      window.clearTimeout(deferredPageSearchRefreshTimer);
+      deferredPageSearchRefreshTimer = 0;
+    }
+  }
+
+  function removeDeferredRenderItemsForPrefix(prefix) {
+    if (!prefix) return;
+    deferredRenderQueue = deferredRenderQueue.filter((item) => !String(item.key || "").startsWith(prefix));
+    for (const key of Array.from(deferredRenderKeys)) {
+      if (key.startsWith(prefix)) deferredRenderKeys.delete(key);
+    }
+  }
+
+  function cancelDeferredRenderSchedule() {
+    if (deferredRenderFrame) {
+      cancelAnimationFrame(deferredRenderFrame);
+      deferredRenderFrame = 0;
+    }
+    if (deferredRenderTimer) {
+      window.clearTimeout(deferredRenderTimer);
+      deferredRenderTimer = 0;
+    }
+  }
+
+  function scheduleDeferredRenderWork() {
+    if (deferredRenderQueue.length === 0 || deferredRenderFrame || deferredRenderTimer) return;
+    if (isDeferredRenderPaused()) return;
+    deferredRenderFrame = requestAnimationFrame(() => {
+      deferredRenderFrame = 0;
+      processDeferredRenderQueue();
+    });
+  }
+
+  function resumeDeferredRenderWork() {
+    if (deferredRenderQueue.length > 0) scheduleDeferredRenderWork();
+  }
+
+  function isDeferredRenderPaused() {
+    return document.visibilityState === "hidden" || isRestoreCoverBlockingTimeGuide();
+  }
+
+  function processDeferredRenderQueue() {
+    if (isDeferredRenderPaused()) return;
+    const deadline = performance.now() + DEFERRED_RENDER_FRAME_BUDGET_MS;
+    sortDeferredRenderQueue();
+
+    while (deferredRenderQueue.length > 0 && performance.now() <= deadline) {
+      const item = deferredRenderQueue.shift();
+      if (!item) continue;
+      deferredRenderKeys.delete(item.key);
+      if (item.generation !== deferredRenderGeneration) continue;
+      if (!(item.element instanceof HTMLElement) || !item.element.isConnected) continue;
+
+      const measurement = measureDeferredRenderHeight(item.element);
+      try {
+        item.render();
+      } catch (error) {
+        console.error("Deferred render failed.", error);
+      }
+      compensateDeferredRenderHeight(measurement, item.element);
+    }
+
+    if (deferredRenderQueue.length === 0) return;
+    deferredRenderTimer = window.setTimeout(() => {
+      deferredRenderTimer = 0;
+      scheduleDeferredRenderWork();
+    }, 0);
+  }
+
+  function sortDeferredRenderQueue() {
+    const root = getScrollRoot();
+    const rootRect = root.getBoundingClientRect();
+    const viewportCenter = rootRect.top + rootRect.height / 2;
+    deferredRenderQueue.sort((a, b) => {
+      return getDeferredRenderDistance(a.element, viewportCenter) - getDeferredRenderDistance(b.element, viewportCenter);
+    });
+  }
+
+  function getDeferredRenderDistance(element, viewportCenter) {
+    if (!(element instanceof HTMLElement)) return Number.POSITIVE_INFINITY;
+    const rect = element.getBoundingClientRect();
+    if (rect.bottom >= viewportCenter && rect.top <= viewportCenter) return 0;
+    return Math.min(Math.abs(rect.top - viewportCenter), Math.abs(rect.bottom - viewportCenter));
+  }
+
+  function measureDeferredRenderHeight(element) {
+    const root = getScrollRoot();
+    const rootRect = root.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
+    return {
+      root,
+      height: rect.height,
+      aboveViewport: rect.bottom <= rootRect.top,
+    };
+  }
+
+  function compensateDeferredRenderHeight(measurement, element) {
+    if (!measurement || !measurement.aboveViewport || !(element instanceof HTMLElement)) return;
+    const nextHeight = element.getBoundingClientRect().height;
+    const delta = Math.round(nextHeight - measurement.height);
+    if (delta !== 0) measurement.root.scrollTop += delta;
+  }
+
+  function schedulePageSearchRefreshAfterDeferredRender() {
+    if (!isPageSearchOpen()) return;
+    if (deferredPageSearchRefreshTimer) window.clearTimeout(deferredPageSearchRefreshTimer);
+    deferredPageSearchRefreshTimer = window.setTimeout(() => {
+      deferredPageSearchRefreshTimer = 0;
+      if (isPageSearchOpen()) refreshPageSearchResults({ preserveIndex: true, reveal: false });
+    }, DEFERRED_SEARCH_REFRESH_DELAY_MS);
   }
 
   function populatePatchEntryBody(body, entry, entryLanguage) {
@@ -3111,6 +4168,7 @@
   }
 
   function normalizeChatOpenPosition(value) {
+    if (value === "latest") return "latest";
     return value === "lastMessage" ? "lastMessage" : "top";
   }
 
@@ -3120,9 +4178,14 @@
   }
 
   function debugChatOpenPosition(eventName, details) {
+    debugWebview("chatOpenPosition", eventName, details);
+  }
+
+  function debugWebview(scope, eventName, details) {
     if (!debugLoggingEnabled) return;
     vscode.postMessage({
       type: "debug",
+      scope,
       event: eventName,
       details: sanitizeDebugDetails(details),
     });
@@ -3657,6 +4720,108 @@
     }, 1800);
   }
 
+  function revealPatchTarget(target) {
+    if (!target) return;
+    const patch = findPatchTargetElement(target);
+    if (patch && patch.entry) {
+      const details = patch.entry.closest("details.patchEntry");
+      if (details) {
+        details.open = true;
+        const entryId = getPatchEntryIdFromDetails(details);
+        if (entryId) expandedPatchEntries.add(entryId);
+      }
+    }
+
+    render();
+    const nextPatch = findPatchTargetElement(target);
+    const elTarget = nextPatch && (nextPatch.entry || nextPatch.group);
+    if (!elTarget) {
+      if (typeof target.messageIndex === "number") revealMessage(target.messageIndex);
+      return;
+    }
+    clearHighlights();
+    elTarget.classList.add("highlight");
+    elTarget.scrollIntoView({ block: "center" });
+    setTimeout(() => {
+      elTarget.classList.remove("highlight");
+    }, 2000);
+  }
+
+  function findPatchTargetElement(target) {
+    const groups = Array.from(document.querySelectorAll(".patchGroupCard"));
+    const wantedEntryId = typeof target.entryId === "string" ? target.entryId : "";
+    const wantedPaths = [target.filePath, target.movePath].filter((value) => typeof value === "string" && value.trim());
+    let best = null;
+    let messageFallback = null;
+    for (const group of groups) {
+      const groupIndex = Number(group.dataset.patchGroupIndex);
+      const item = Number.isFinite(groupIndex) && model && Array.isArray(model.items) ? model.items[groupIndex] : null;
+      const messageMatches =
+        typeof target.messageIndex === "number" && item && item.messageIndex === target.messageIndex;
+      const timestampScore = scoreRevealTimestamp(target.timestampIso, item && item.timestampIso);
+      const entries = Array.from(group.querySelectorAll("details.patchEntry"));
+      for (const entry of entries) {
+        const entryId = getPatchEntryIdFromDetails(entry);
+        const idMatches = !!wantedEntryId && entryId === wantedEntryId;
+        const pathEl = entry.querySelector(".patchEntryPath");
+        const title = pathEl ? pathEl.textContent || "" : "";
+        const pathMatches = wantedPaths.some((pathValue) => pathMatchesRevealTarget(title, pathValue));
+        if (!idMatches && !pathMatches) continue;
+        const score = (idMatches ? 1000 : 0) + (pathMatches ? 100 : 0) + timestampScore + (messageMatches ? 40 : 0);
+        if (!best || score > best.score) best = { group, entry, score };
+      }
+      if (messageMatches && !messageFallback) messageFallback = { group, entry: null, score: 1 };
+    }
+    return best || messageFallback;
+  }
+
+  function getPatchEntryIdFromDetails(details) {
+    if (!(details instanceof HTMLElement)) return "";
+    const entries = model && Array.isArray(model.items) ? model.items : [];
+    const group = details.closest(".patchGroupCard");
+    const groupIndex = group ? Number(group.dataset.patchGroupIndex) : -1;
+    const item = Number.isFinite(groupIndex) ? entries[groupIndex] : null;
+    if (!item || !Array.isArray(item.entries)) return "";
+    const all = Array.from(group.querySelectorAll("details.patchEntry"));
+    const index = all.indexOf(details);
+    const entry = index >= 0 ? item.entries[index] : null;
+    return entry && typeof entry.id === "string" ? entry.id : "";
+  }
+
+  function pathMatchesRevealTarget(displayText, rawPath) {
+    const left = normalizeRevealPath(displayText);
+    const right = normalizeRevealPath(rawPath);
+    if (!left || !right) return false;
+    return left === right || left.includes(right) || left.endsWith(`/${right}`) || right.endsWith(`/${left}`);
+  }
+
+  function scoreRevealTimestamp(targetIso, itemIso) {
+    const targetMs = parseRevealTimestampMs(targetIso);
+    const itemMs = parseRevealTimestampMs(itemIso);
+    if (targetMs === null || itemMs === null) return 0;
+    const delta = Math.abs(targetMs - itemMs);
+    if (delta <= 1000) return 80;
+    if (delta <= 60 * 1000) return 60;
+    if (delta <= 5 * 60 * 1000) return 35;
+    if (delta <= 60 * 60 * 1000) return 10;
+    return 0;
+  }
+
+  function parseRevealTimestampMs(value) {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  function normalizeRevealPath(value) {
+    return String(value || "")
+      .replace(/→/g, " ")
+      .replace(/\\/g, "/")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  }
+
   function revealMessage(messageIndex) {
     expandedMessageIndexes.add(messageIndex);
     render();
@@ -3695,6 +4860,21 @@
         requestAnimationFrame(() => {
           scrollToLatestFollowTarget({ persist: true });
         });
+      });
+    });
+  }
+
+  function restoreScrollToLatestBoundary() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const target = getTimelineBoundaryCard("bottom");
+        if (target) {
+          scrollElementIntoRootView(target, { behavior: "auto", block: "start" });
+        } else {
+          const root = getScrollRoot();
+          root.scrollTo(0, root.scrollHeight);
+        }
+        requestAnimationFrame(() => persistCurrentChatOpenPosition({ immediate: true }));
       });
     });
   }
@@ -3835,7 +5015,7 @@
           index: targetMessageIndex,
           scrollTop: getScrollTop(),
         });
-        showToast(i18n.restoredLastPosition || "Restored last viewed position.");
+        showToast(i18n.restoredLastPosition || "Restored last viewed position.", { key: "restoredLastPosition" });
       });
     });
     return targetMessageIndex;
@@ -3845,27 +5025,58 @@
     for (const elx of document.querySelectorAll(".highlight")) elx.classList.remove("highlight");
   }
 
-  function showToast(text) {
-    // Simple toast that disappears after a short delay.
-    const toast = el("div", {});
+  function showToast(text, options = {}) {
+    const container = ensureToastContainer();
+    if (!container) return;
+    const toastKey = normalizeToastKey(options.key);
+    if (toastKey) removeExistingToastByKey(container, toastKey);
+    const toast = el("div", { className: "chatToast" });
     toast.textContent = String(text || "");
-    toast.style.position = "fixed";
-    toast.style.right = "12px";
-    toast.style.bottom = "12px";
-    toast.style.padding = "8px 10px";
-    toast.style.border = "1px solid var(--chv-border)";
-    toast.style.borderRadius = "8px";
-    toast.style.background = "var(--chv-bg)";
-    toast.style.color = "var(--chv-fg)";
-    toast.style.zIndex = "3";
-    document.body.appendChild(toast);
+    if (toastKey) toast.dataset.toastKey = toastKey;
+    container.appendChild(toast);
+    const durationMs = normalizeToastDuration(options.durationMs);
     setTimeout(() => {
       try {
         toast.remove();
+        if (container.childElementCount === 0) container.remove();
       } catch {
         // Ignore rare failures to remove the toast node.
       }
-    }, 1200);
+    }, durationMs);
+  }
+
+  function normalizeToastKey(value) {
+    const key = typeof value === "string" ? value.trim() : "";
+    if (!key || key.length > 80) return "";
+    return /^[A-Za-z0-9_.:-]+$/.test(key) ? key : "";
+  }
+
+  function removeExistingToastByKey(container, key) {
+    if (!(container instanceof HTMLElement) || !key) return;
+    for (const toast of Array.from(container.querySelectorAll(`[data-toast-key="${cssEscape(key)}"]`))) {
+      toast.remove();
+    }
+  }
+
+  function cssEscape(value) {
+    if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(value);
+    return String(value).replace(/["\\]/g, "\\$&");
+  }
+
+  function normalizeToastDuration(value) {
+    const duration = Number(value);
+    if (!Number.isFinite(duration)) return 2400;
+    return Math.min(8000, Math.max(1200, Math.floor(duration)));
+  }
+
+  function ensureToastContainer() {
+    const existing = document.querySelector(".chatToastContainer");
+    if (existing instanceof HTMLElement) return existing;
+    if (!(document.body instanceof HTMLElement)) return null;
+    const container = el("div", { className: "chatToastContainer" });
+    container.setAttribute("aria-live", "polite");
+    document.body.appendChild(container);
+    return container;
   }
 
   function el(tag, props) {
@@ -3874,8 +5085,25 @@
     return e;
   }
 
-  function shouldAutoShowDetails(model, revealMessageIndex) {
+  function normalizeRevealTarget(value) {
+    if (!value || typeof value !== "object") return null;
+    if (value.kind !== "patchEntry") return null;
+    return {
+      kind: "patchEntry",
+      messageIndex:
+        typeof value.messageIndex === "number" && Number.isFinite(value.messageIndex)
+          ? Math.max(0, Math.floor(value.messageIndex))
+          : undefined,
+      timestampIso: typeof value.timestampIso === "string" ? value.timestampIso : "",
+      filePath: typeof value.filePath === "string" ? value.filePath : "",
+      movePath: typeof value.movePath === "string" ? value.movePath : "",
+      entryId: typeof value.entryId === "string" ? value.entryId : "",
+    };
+  }
+
+  function shouldAutoShowDetails(model, revealMessageIndex, revealTarget) {
     if (!model || !Array.isArray(model.items)) return false;
+    if (revealTarget) return false;
     if (typeof revealMessageIndex !== "number") return false;
     for (const item of model.items) {
       if (!item || typeof item !== "object") continue;

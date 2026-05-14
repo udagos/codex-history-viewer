@@ -8,7 +8,8 @@ export type HistoryTitleSource = "generated" | "nativeWhenAvailable";
 export type PreviewTooltipMode = "full" | "compact" | "titleOnly";
 export type SearchIndexToolContent = "conversationOnly" | "toolCalls" | "toolCallsAndOutputs";
 export type LongMessageFoldingMode = "off" | "auto" | "always";
-export type ChatOpenPosition = "top" | "lastMessage";
+export type ChatOpenPosition = "top" | "lastMessage" | "latest";
+export type ChatPerformanceMode = "auto" | "normal" | "simplified";
 export type ImageThumbnailSize = "small" | "medium" | "large";
 
 export interface AutoRefreshConfig {
@@ -28,6 +29,7 @@ export interface CodexHistoryViewerConfig {
   claudeSessionsRoot: string;
   enableCodexSource: boolean;
   enableClaudeSource: boolean;
+  fileChangeHistoryExplorerContextMenuEnabled: boolean;
   previewOpenOnSelection: boolean;
   previewMaxMessages: number;
   previewTooltipMode: PreviewTooltipMode;
@@ -41,9 +43,11 @@ export interface CodexHistoryViewerConfig {
   autoRefresh: AutoRefreshConfig;
   images: ImagesConfig;
   chatOpenPosition: ChatOpenPosition;
+  chatPerformanceMode: ChatPerformanceMode;
   toolDisplayMode: ToolDisplayMode;
   userLongMessageFolding: LongMessageFoldingMode;
   assistantLongMessageFolding: LongMessageFoldingMode;
+  timeGuideEnabled: boolean;
 }
 
 function getDefaultSessionsRoot(): string {
@@ -72,7 +76,14 @@ function parseLongMessageFoldingMode(value: unknown): LongMessageFoldingMode {
 
 function parseChatOpenPosition(value: unknown): ChatOpenPosition {
   const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "latest") return "latest";
   return normalized === "lastmessage" ? "lastMessage" : "top";
+}
+
+function parseChatPerformanceMode(value: unknown): ChatPerformanceMode {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "normal" || normalized === "simplified") return normalized;
+  return "auto";
 }
 
 function parseImageThumbnailSize(value: unknown): ImageThumbnailSize {
@@ -118,6 +129,7 @@ export function getConfig(): CodexHistoryViewerConfig {
   const historyTitleSource: HistoryTitleSource =
     historyTitleSourceRaw === "nativewhenavailable" ? "nativeWhenAvailable" : "generated";
   const chatOpenPosition = parseChatOpenPosition(cfg.get<string>("chat.openPosition") ?? "top");
+  const chatPerformanceMode = parseChatPerformanceMode(cfg.get<string>("chat.performanceMode") ?? "auto");
   const toolDisplayModeRaw = (cfg.get<string>("chat.toolDisplayMode") ?? "detailsOnly").trim().toLowerCase();
   const toolDisplayMode: ToolDisplayMode = toolDisplayModeRaw === "compactcards" ? "compactCards" : "detailsOnly";
   const legacyLongMessageFolding = parseLongMessageFoldingMode(cfg.get<string>("chat.longMessageFolding") ?? "off");
@@ -143,10 +155,12 @@ export function getConfig(): CodexHistoryViewerConfig {
     claudeSessionsRoot: claudeSessionsRootRaw.length > 0 ? claudeSessionsRootRaw : getDefaultClaudeSessionsRoot(),
     enableCodexSource: enabledSources.enableCodexSource,
     enableClaudeSource: enabledSources.enableClaudeSource,
+    fileChangeHistoryExplorerContextMenuEnabled:
+      cfg.get<boolean>("fileChangeHistory.explorerContextMenu.enabled") ?? false,
     previewOpenOnSelection: cfg.get<boolean>("preview.openOnSelection") ?? true,
-    previewMaxMessages: cfg.get<number>("preview.maxMessages") ?? 6,
+    previewMaxMessages: parseBoundedNumber(cfg.get<number>("preview.maxMessages"), 6, 1, 50),
     previewTooltipMode: parsePreviewTooltipMode(cfg.get<string>("preview.tooltipMode") ?? "full"),
-    searchMaxResults: cfg.get<number>("search.maxResults") ?? 500,
+    searchMaxResults: parseBoundedNumber(cfg.get<number>("search.maxResults"), 500, 1, 10_000),
     searchCaseSensitive: cfg.get<boolean>("search.caseSensitive") ?? false,
     searchIndexToolContent: parseSearchIndexToolContent(
       cfg.get<string>("search.indexToolContent") ?? "toolCallsAndOutputs",
@@ -158,8 +172,10 @@ export function getConfig(): CodexHistoryViewerConfig {
     autoRefresh,
     images,
     chatOpenPosition,
+    chatPerformanceMode,
     toolDisplayMode,
     userLongMessageFolding,
     assistantLongMessageFolding,
+    timeGuideEnabled: cfg.get<boolean>("ui.timeGuide.enabled") ?? false,
   };
 }

@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-05-14
+
+### Added
+
+- Added file-level **AI Change History** for workspace files, available from the opt-in **File Change History > Explorer Context Menu: Enabled** setting, with source toggles, in-view search, paging, source-aware card navigation, and links back to the matching diff card in the original session view.
+- Added history-view performance modes for large histories, including a simplified mode that loads heavy diff/detail sections on demand.
+- Added the `latest` option to `codexHistoryViewer.chat.openPosition` so chat sessions can open at the latest rendered card.
+- Added optional compact date guides for history and file-change views that can be enabled or disabled from settings.
+- Added settings:
+  - `codexHistoryViewer.fileChangeHistory.explorerContextMenu.enabled`
+  - `codexHistoryViewer.chat.performanceMode`
+  - `codexHistoryViewer.ui.timeGuide.enabled`
+
+### Changed
+
+- Custom title actions now use a shared QuickPick flow from tree context menus and the chat viewer header.
+- Codex `apply_patch` activity is now shown as diff cards when possible, while duplicate cards are avoided when matching `patch_apply_end` events are also present.
+- Codex diff cards now aggregate repeated updates to the same file within a single turn.
+
 ## [1.5.1] - 2026-05-08
 
 ### Changed

@@ -1,0 +1,1073 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --chv-bg: var(--vscode-editor-background);
+  --chv-fg: var(--vscode-editor-foreground);
+  --chv-muted: var(--vscode-descriptionForeground);
+  --chv-border: var(--vscode-editorWidget-border);
+  --chv-assistant-bg: var(--vscode-editorWidget-background);
+  --chv-tool-bg: var(--vscode-notifications-background, rgba(128, 128, 128, 0.08));
+  --chv-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  --chv-accent: var(--vscode-focusBorder);
+  --chv-patch-surface: color-mix(in srgb, var(--chv-code-bg) 68%, var(--chv-assistant-bg) 32%);
+  --chv-patch-surface-alt: color-mix(in srgb, var(--chv-tool-bg) 90%, var(--chv-border) 10%);
+  --chv-patch-divider: color-mix(in srgb, var(--chv-border) 82%, transparent);
+  --chv-patch-divider-soft: color-mix(in srgb, var(--chv-border) 68%, transparent);
+  --chv-patch-header-bg: color-mix(in srgb, var(--chv-tool-bg) 82%, var(--chv-bg) 18%);
+  --chv-patch-column-bg: color-mix(in srgb, var(--chv-tool-bg) 74%, var(--chv-bg) 26%);
+  --chv-patch-gutter-bg: color-mix(in srgb, var(--chv-bg) 56%, transparent);
+  --chv-patch-summary-hover-bg: color-mix(in srgb, var(--chv-tool-bg) 90%, var(--chv-border) 10%);
+  --chv-patch-add-accent-base: var(--vscode-terminal-ansiGreen, #00c853);
+  --chv-patch-remove-accent-base: var(--vscode-errorForeground, #ff5f38);
+  --chv-patch-add-bg: color-mix(in srgb, var(--chv-patch-add-accent-base) 18%, var(--chv-patch-surface) 82%);
+  --chv-patch-remove-bg: color-mix(in srgb, var(--chv-patch-remove-accent-base) 16%, var(--chv-patch-surface) 84%);
+  --chv-patch-add-accent: color-mix(in srgb, var(--chv-patch-add-accent-base) 74%, var(--chv-fg) 26%);
+  --chv-patch-remove-accent: color-mix(in srgb, var(--chv-patch-remove-accent-base) 74%, var(--chv-fg) 26%);
+  --chv-patch-add-badge-fg: var(--chv-patch-add-accent);
+  --chv-patch-remove-badge-fg: var(--chv-patch-remove-accent);
+  --chv-patch-add-badge-bg: color-mix(in srgb, var(--chv-patch-add-accent) 12%, transparent);
+  --chv-patch-remove-badge-bg: color-mix(in srgb, var(--chv-patch-remove-accent) 12%, transparent);
+  --chv-patch-add-badge-border: color-mix(in srgb, var(--chv-patch-add-accent) 34%, var(--chv-border) 66%);
+  --chv-patch-remove-badge-border: color-mix(in srgb, var(--chv-patch-remove-accent) 34%, var(--chv-border) 66%);
+  --chv-find-match-bg: var(--vscode-editor-findMatchHighlightBackground, rgba(234, 179, 8, 0.2));
+  --chv-find-match-active-bg: var(--vscode-editor-findMatchBackground, rgba(234, 179, 8, 0.35));
+  --chv-find-match-border: var(--vscode-editor-findMatchBorder, rgba(234, 179, 8, 0.6));
+  --chv-search-surface: color-mix(in srgb, var(--chv-tool-bg) 72%, var(--chv-assistant-bg) 28%);
+  --chv-search-border: color-mix(in srgb, var(--chv-accent) 22%, var(--chv-border) 78%);
+  --chv-search-accent: color-mix(in srgb, var(--chv-accent) 78%, var(--chv-fg) 22%);
+  --chv-search-field-bg: color-mix(in srgb, var(--chv-bg) 82%, var(--chv-search-surface) 18%);
+  --chv-search-chip-bg: color-mix(in srgb, var(--chv-accent) 10%, var(--chv-bg) 90%);
+  --chv-search-chip-border: color-mix(in srgb, var(--chv-accent) 24%, var(--chv-border) 76%);
+  --chv-page-search-width: min(360px, calc(100vw - 20px));
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--chv-bg);
+  color: var(--chv-fg);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  line-height: 1.45;
+}
+
+body {
+  overflow: hidden;
+}
+
+#restoreCover {
+  position: fixed;
+  top: var(--chv-toolbar-height, 44px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  background: var(--chv-bg);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+#restoreCover[hidden] {
+  display: none;
+}
+
+body.restoreCoverActive #restoreCover {
+  pointer-events: auto;
+  opacity: 0.94;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--chv-border);
+  border-radius: 6px;
+  color: var(--chv-fg);
+  background: transparent;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 1px solid var(--chv-accent);
+  outline-offset: 2px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+#toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--chv-border);
+  background: var(--chv-bg);
+}
+
+#toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--chv-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--chv-fg);
+  cursor: pointer;
+}
+
+#toolbar .toolbarIconBtn {
+  /* Icon-only toolbar button. */
+  gap: 0;
+  padding: 4px 8px;
+  line-height: 0;
+}
+
+#toolbar .toolbarIconBtn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+#toolbar button:hover {
+  border-color: var(--chv-accent);
+}
+
+#toolbarInfo {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 10px;
+  align-items: center;
+  margin: 0 2px;
+}
+
+.toolbarPath {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--chv-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toolbarStats {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.toolbarSourceCount {
+  display: inline-flex;
+  min-height: 22px;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 7px;
+  border: 1px solid var(--chv-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chv-tool-bg) 64%, transparent);
+  color: var(--chv-muted);
+  cursor: pointer;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+
+.toolbarSourceCount[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--chv-accent) 34%, var(--chv-border) 66%);
+  background: color-mix(in srgb, var(--chv-accent) 10%, var(--chv-tool-bg) 90%);
+  color: var(--chv-fg);
+}
+
+.toolbarSourceCount[aria-pressed="false"] {
+  opacity: 0.5;
+}
+
+.toolbarSourceCount[aria-pressed="false"] .toolbarSourceIcon {
+  filter: grayscale(1);
+}
+
+.toolbarSourceIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.sourceIconThemeDark {
+  display: none;
+}
+
+body.vscode-dark .sourceIconThemeLight,
+body.vscode-high-contrast .sourceIconThemeLight {
+  display: none;
+}
+
+body.vscode-dark .sourceIconThemeDark,
+body.vscode-high-contrast .sourceIconThemeDark {
+  display: inline-block;
+}
+
+.toolbarSourceFallback {
+  font-weight: 700;
+}
+
+.toolbarSourceValue {
+  color: var(--chv-fg);
+}
+
+#scrollRoot {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.pageSearchResizing {
+  cursor: ew-resize;
+  user-select: none;
+}
+
+#pageSearchBar[hidden] {
+  display: none !important;
+}
+
+#pageSearchBar {
+  position: fixed;
+  top: calc(var(--chv-toolbar-height, 44px) + 8px);
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  display: flex;
+  width: var(--chv-page-search-width);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--chv-search-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--chv-search-surface) 92%, var(--chv-bg) 8%);
+  box-shadow: 0 16px 32px color-mix(in srgb, var(--chv-bg) 84%, transparent);
+}
+
+#pageSearchResizeHandle {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+#pageSearchResizeHandle::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 3px;
+  width: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chv-search-accent) 32%, transparent);
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+#pageSearchBar:hover #pageSearchResizeHandle::after,
+body.pageSearchResizing #pageSearchResizeHandle::after {
+  opacity: 1;
+}
+
+body.pageSearchResizing #pageSearchResizeHandle::after {
+  background: color-mix(in srgb, var(--chv-search-accent) 62%, transparent);
+}
+
+#pageSearchInner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: hidden;
+  padding: 10px 10px 10px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--chv-search-border) 70%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--chv-search-surface) 86%, var(--chv-bg) 14%),
+    color-mix(in srgb, var(--chv-search-surface) 98%, var(--chv-bg) 2%)
+  );
+}
+
+#pageSearchInner::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, var(--chv-search-accent), color-mix(in srgb, var(--chv-search-accent) 45%, transparent));
+}
+
+#pageSearchInner:focus-within {
+  border-color: var(--chv-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--chv-accent) 26%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--chv-accent) 12%, transparent);
+}
+
+#pageSearchHeader,
+#pageSearchInputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#pageSearchHeader {
+  justify-content: space-between;
+}
+
+#pageSearchTitle {
+  min-width: 0;
+  color: var(--chv-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+#pageSearchActions {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 6px;
+  align-items: center;
+}
+
+#pageSearchInput {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--chv-border) 78%, transparent);
+  border-radius: 8px;
+  outline: none;
+  background: var(--chv-search-field-bg);
+  color: var(--chv-fg);
+}
+
+#pageSearchInput::placeholder {
+  color: var(--chv-muted);
+}
+
+#pageSearchInput:focus {
+  border-color: var(--chv-accent);
+}
+
+#pageSearchCount {
+  min-width: 52px;
+  padding: 2px 8px;
+  border: 1px solid var(--chv-search-chip-border);
+  border-radius: 999px;
+  background: var(--chv-search-chip-bg);
+  color: var(--chv-muted);
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+#pageSearchInner button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--chv-border) 82%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--chv-bg) 70%, transparent);
+  color: var(--chv-fg);
+  line-height: 0;
+}
+
+#pageSearchInner button:hover {
+  border-color: var(--chv-accent);
+  background: color-mix(in srgb, var(--chv-accent) 10%, var(--chv-bg) 90%);
+}
+
+#pageSearchInner button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+#pageSearchResults {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 10px;
+  background: color-mix(in srgb, var(--chv-bg) 92%, var(--chv-search-surface) 8%);
+}
+
+.pageSearchEmpty {
+  padding: 12px 10px;
+  border: 1px dashed color-mix(in srgb, var(--chv-border) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chv-bg) 88%, transparent);
+  color: var(--chv-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.pageSearchResult {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--chv-border) 80%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--chv-bg) 84%, var(--chv-search-surface) 16%);
+  color: inherit;
+  text-align: left;
+}
+
+.pageSearchResult:hover {
+  border-color: var(--chv-accent);
+  background: color-mix(in srgb, var(--chv-accent) 7%, var(--chv-bg) 93%);
+}
+
+.pageSearchResult-active {
+  border-color: color-mix(in srgb, var(--chv-accent) 72%, var(--chv-border) 28%);
+  background: color-mix(in srgb, var(--chv-accent) 10%, var(--chv-bg) 90%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chv-accent) 18%, transparent);
+}
+
+.pageSearchResultHeader {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.pageSearchResultLine {
+  min-width: 38px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chv-code-bg) 82%, transparent);
+  color: var(--chv-muted);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.pageSearchResultHeaderText {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pageSearchResultTitle {
+  overflow: hidden;
+  color: var(--chv-fg);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pageSearchResultMeta {
+  overflow: hidden;
+  color: var(--chv-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pageSearchResultSnippet {
+  display: -webkit-box;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--chv-fg) 92%, var(--chv-muted) 8%);
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  word-break: break-word;
+}
+
+.pageSearchResultMatch,
+mark.pageSearchMatch {
+  border-radius: 3px;
+  background: var(--chv-find-match-bg);
+  color: inherit;
+  padding: 0 1px;
+}
+
+mark.pageSearchMatch-active {
+  background: var(--chv-find-match-active-bg);
+  box-shadow: inset 0 0 0 1px var(--chv-find-match-border);
+}
+
+.fchRoot {
+  min-height: 100%;
+}
+
+.headerResultCount {
+  color: var(--chv-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.staleBanner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 12px 16px 0;
+  padding: 9px 10px;
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+  border-radius: 6px;
+  background: var(--vscode-inputValidation-warningBackground);
+}
+
+.fchBody {
+  display: block;
+  padding: 14px 14px 28px 16px;
+}
+
+.cardColumn {
+  min-width: 0;
+}
+
+.diffCard {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  margin: 0 0 12px;
+  border: 1px solid var(--chv-border);
+  border-radius: 10px;
+  background: var(--chv-tool-bg);
+  padding-left: 16px;
+  --tool-accent: var(--vscode-terminal-ansiGreen, #6a9955);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.diffCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  border-radius: 10px 0 0 10px;
+  background: var(--tool-accent);
+}
+
+.diffCard:hover {
+  border-color: color-mix(in srgb, var(--chv-border) 74%, var(--tool-accent) 26%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chv-border) 78%, var(--tool-accent) 22%);
+}
+
+.diffCard.highlight {
+  box-shadow: 0 0 0 2px var(--chv-accent) inset;
+}
+
+.cardHeader {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--chv-border) 70%, transparent);
+}
+
+.cardTitleBlock {
+  min-width: 0;
+}
+
+.cardTitleBlock h2 {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.cardMetaLine,
+.statLine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.sourcePill,
+.metaChip,
+.countBadge {
+  display: inline-flex;
+  min-height: 20px;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--chv-border);
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.sourceIcon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin-right: 0;
+}
+
+.countBadge {
+  min-height: 18px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.patchCountBadge {
+  display: inline-flex;
+  min-height: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border: 1px solid var(--chv-border);
+  border-radius: 999px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.countBadge.added,
+.patchCountBadge-add {
+  border-color: var(--chv-patch-add-badge-border);
+  background: var(--chv-patch-add-badge-bg);
+  color: var(--chv-patch-add-badge-fg);
+}
+
+.countBadge.removed,
+.patchCountBadge-remove {
+  border-color: var(--chv-patch-remove-badge-border);
+  background: var(--chv-patch-remove-badge-bg);
+  color: var(--chv-patch-remove-badge-fg);
+}
+
+.statLine {
+  padding: 9px 12px;
+}
+
+.movedText {
+  overflow-wrap: anywhere;
+  color: var(--chv-muted);
+}
+
+.secondaryBtn,
+.primaryBtn {
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+.secondaryBtn:hover,
+.primaryBtn:hover,
+.iconBtn:hover {
+  border-color: var(--chv-accent);
+}
+
+.primaryBtn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.messageNav {
+  display: flex;
+  flex-shrink: 0;
+  gap: 4px;
+  align-items: center;
+}
+
+.cardActions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  max-width: 62%;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  line-height: 0;
+}
+
+.messageNav .navBtn {
+  padding: 2px 5px;
+}
+
+.messageNav .navBtn svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+
+.iconBtn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.diffDetails {
+  overflow: hidden;
+  border-top: 1px solid var(--chv-patch-divider);
+  background: var(--chv-patch-surface-alt);
+}
+
+.diffDetailsSummary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 10px;
+  line-height: 1.25;
+  list-style: none;
+  cursor: pointer;
+}
+
+.diffDetailsSummary:hover {
+  background: var(--chv-patch-summary-hover-bg);
+}
+
+.diffDetailsSummary::marker,
+.diffDetailsSummary::-webkit-details-marker {
+  display: none;
+}
+
+.diffDetailsSummary::before {
+  content: ">";
+  flex-shrink: 0;
+  color: var(--chv-muted);
+}
+
+.diffDetails[open] > .diffDetailsSummary::before {
+  content: "v";
+}
+
+.diffDetailsPath {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diffDetailsCounts {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 4px;
+  align-items: center;
+}
+
+.diffWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--chv-patch-divider);
+}
+
+.patchHunk {
+  overflow-x: hidden;
+  overflow-y: hidden;
+  border: 1px solid var(--chv-patch-divider);
+  border-radius: 8px;
+  background: var(--chv-patch-surface);
+}
+
+.patchHunkHeader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--chv-patch-divider);
+  background: var(--chv-patch-header-bg);
+  color: var(--chv-muted);
+  font-family: var(--vscode-editor-font-family);
+  font-size: 11px;
+}
+
+.patchHunkHeaderText {
+  min-width: 0;
+}
+
+.patchDiffColumnLabels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-bottom: 1px solid var(--chv-patch-divider);
+  background: var(--chv-patch-column-bg);
+}
+
+.patchDiffColumnLabel {
+  padding: 5px 8px;
+  color: var(--chv-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.patchDiffColumnLabel-before {
+  border-right: 1px solid var(--chv-patch-divider);
+}
+
+.patchDiffBlocks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.patchDiffBlock {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  min-width: 0;
+}
+
+.patchDiffBlock-left {
+  border-right: 1px solid var(--chv-patch-divider);
+}
+
+.patchDiffLineColumn,
+.patchDiffTextColumn {
+  display: flex;
+  flex-direction: column;
+}
+
+.patchDiffLineColumn {
+  min-width: 0;
+  background: var(--chv-patch-gutter-bg);
+}
+
+.patchDiffTextColumn {
+  min-width: max-content;
+}
+
+.patchDiffLineNo,
+.patchDiffText {
+  border-top: 1px solid var(--chv-patch-divider-soft);
+}
+
+.patchDiffLineColumn > :first-child,
+.patchDiffTextColumn > :first-child {
+  border-top: 0;
+}
+
+.patchDiffLineNo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 2px 8px 1px;
+  border-right: 1px solid var(--chv-patch-divider);
+  background: var(--chv-patch-gutter-bg);
+  color: var(--chv-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+  user-select: none;
+}
+
+.patchDiffViewport {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--chv-patch-surface);
+}
+
+.patchDiffText {
+  position: relative;
+  min-width: max-content;
+  padding: 2px 10px 1px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre;
+}
+
+.patchDiffText-add.patchDiffText-right,
+.patchDiffText-modify.patchDiffText-right {
+  background: var(--chv-patch-add-bg);
+}
+
+.patchDiffText-delete.patchDiffText-left,
+.patchDiffText-modify.patchDiffText-left {
+  background: var(--chv-patch-remove-bg);
+}
+
+.patchDiffText-add.patchDiffText-right::before,
+.patchDiffText-modify.patchDiffText-right::before,
+.patchDiffText-delete.patchDiffText-left::before,
+.patchDiffText-modify.patchDiffText-left::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+}
+
+.patchDiffText-add.patchDiffText-right::before,
+.patchDiffText-modify.patchDiffText-right::before {
+  background: var(--chv-patch-add-accent);
+}
+
+.patchDiffText-delete.patchDiffText-left::before,
+.patchDiffText-modify.patchDiffText-left::before {
+  background: var(--chv-patch-remove-accent);
+}
+
+.emptyDiff {
+  padding: 8px 10px;
+  color: var(--chv-muted);
+}
+
+.loadControls {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 10px 0 2px;
+}
+
+.noMore {
+  color: var(--chv-muted);
+}
+
+.statePanel {
+  max-width: 720px;
+  margin: 24px auto;
+  padding: 24px;
+  color: var(--chv-muted);
+  text-align: center;
+}
+
+.statePanelTitleRow {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--chv-fg);
+}
+
+.statePanelIcon {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  background: var(--vscode-icon-foreground, var(--chv-fg));
+  mask: var(--state-panel-icon) center / contain no-repeat;
+  -webkit-mask: var(--state-panel-icon) center / contain no-repeat;
+}
+
+.statePanel h1,
+.statePanel h2 {
+  margin: 0 0 8px;
+  color: var(--chv-fg);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.statePanelTitleRow h1 {
+  margin: 0;
+}
+
+.errorPanel {
+  color: var(--vscode-errorForeground);
+}
+
+.fchToastContainer {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2147483100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 28px));
+  pointer-events: none;
+}
+
+.fchToast {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--chv-border);
+  border-radius: 8px;
+  background: var(--chv-assistant-bg);
+  color: var(--chv-fg);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 22%, transparent);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 860px) {
+  #pageSearchResizeHandle {
+    display: none;
+  }
+
+  #pageSearchBar {
+    top: calc(var(--chv-toolbar-height, 44px) + 6px);
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+  }
+}
+
+@media (max-width: 760px) {
+  .fchBody {
+    padding: 12px 8px 24px 12px;
+  }
+
+}
+
+@media (max-width: 680px) {
+  #toolbarInfo {
+    gap: 6px;
+  }
+
+  .toolbarPath {
+    display: none;
+  }
+
+  .cardHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cardActions {
+    justify-content: flex-end;
+    max-width: 100%;
+  }
+
+  .diffDetailsSummary {
+    align-items: flex-start;
+  }
+}

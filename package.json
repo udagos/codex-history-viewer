@@ -3,7 +3,7 @@
   "displayName": "%ext.displayName%",
   "description": "%ext.description%",
   "icon": "resources/extension-icon.png",
-  "version": "1.5.1",
+  "version": "2.0.0",
   "publisher": "hiztam",
   "author": "HizTam",
   "license": "MIT",
@@ -209,6 +209,15 @@
         "title": "%cmd.showHistoryDateView%",
         "category": "%cmd.category%",
         "icon": "$(calendar)"
+      },
+      {
+        "command": "codexHistoryViewer.openFileChangeHistory",
+        "title": "%cmd.openFileChangeHistory%",
+        "category": "%cmd.category%",
+        "icon": {
+          "light": "resources/icons/light/source-both.svg",
+          "dark": "resources/icons/dark/source-both.svg"
+        }
       },
       {
         "command": "codexHistoryViewer.openSession",
@@ -669,6 +678,12 @@
         "icon": "$(trash)"
       },
       {
+        "command": "codexHistoryViewer.manageCustomTitle",
+        "title": "%cmd.manageCustomTitle%",
+        "category": "%cmd.category%",
+        "icon": "$(edit)"
+      },
+      {
         "command": "codexHistoryViewer.setCustomTitle",
         "title": "%cmd.setCustomTitle%",
         "category": "%cmd.category%",
@@ -763,6 +778,16 @@
         "command": "codexHistoryViewer.ui.en.searchDeletePreset",
         "title": "Delete Saved Search...",
         "icon": "$(trash)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.ja.manageCustomTitle",
+        "title": "カスタムタイトル...",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.en.manageCustomTitle",
+        "title": "Custom Title...",
+        "icon": "$(edit)"
       },
       {
         "command": "codexHistoryViewer.ui.ja.setCustomTitle",
@@ -902,6 +927,13 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "command": "codexHistoryViewer.openFileChangeHistory",
+          "when": "resourceScheme == file && !explorerResourceIsFolder && config.codexHistoryViewer.fileChangeHistory.explorerContextMenu.enabled == true",
+          "group": "navigation@90"
+        }
+      ],
       "commandPalette": [
         {
           "command": "codexHistoryViewer.ui.ja.openSession",
@@ -1190,6 +1222,30 @@
         {
           "command": "codexHistoryViewer.ui.en.searchDeletePreset",
           "when": "codexHistoryViewer.uiLang != 'ja'"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.manageCustomTitle",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.manageCustomTitle",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.setCustomTitle",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.setCustomTitle",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.clearCustomTitle",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.clearCustomTitle",
+          "when": "false"
         },
         {
           "command": "codexHistoryViewer.ui.ja.renameTagGlobally",
@@ -1737,24 +1793,14 @@
           "group": "1_actions"
         },
         {
-          "command": "codexHistoryViewer.ui.ja.setCustomTitle",
+          "command": "codexHistoryViewer.ui.ja.manageCustomTitle",
           "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions@6"
         },
         {
-          "command": "codexHistoryViewer.ui.en.setCustomTitle",
+          "command": "codexHistoryViewer.ui.en.manageCustomTitle",
           "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions@6"
-        },
-        {
-          "command": "codexHistoryViewer.ui.ja.clearCustomTitle",
-          "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)\\.customTitle$/ && codexHistoryViewer.uiLang == 'ja'",
-          "group": "1_actions@7"
-        },
-        {
-          "command": "codexHistoryViewer.ui.en.clearCustomTitle",
-          "when": "(view == codexHistoryViewer.historyView || view == codexHistoryViewer.pinnedView) && viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned)\\.(codex|claude)\\.customTitle$/ && codexHistoryViewer.uiLang != 'ja'",
-          "group": "1_actions@7"
         },
         {
           "command": "codexHistoryViewer.ui.ja.editSessionAnnotation",
@@ -1963,6 +2009,13 @@
           "scope": "application",
           "order": 86
         },
+        "codexHistoryViewer.fileChangeHistory.explorerContextMenu.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "%cfg.fileChangeHistoryExplorerContextMenuEnabled%",
+          "scope": "resource",
+          "order": 66
+        },
         "codexHistoryViewer.autoRefresh.enabled": {
           "type": "boolean",
           "default": false,
@@ -1993,19 +2046,44 @@
           "default": "top",
           "enum": [
             "top",
-            "lastMessage"
+            "lastMessage",
+            "latest"
           ],
           "enumItemLabels": [
             "%cfg.chatOpenPosition.labelTop%",
-            "%cfg.chatOpenPosition.labelLastMessage%"
+            "%cfg.chatOpenPosition.labelLastMessage%",
+            "%cfg.chatOpenPosition.labelLatest%"
           ],
           "enumDescriptions": [
             "%cfg.chatOpenPosition.enumTop%",
-            "%cfg.chatOpenPosition.enumLastMessage%"
+            "%cfg.chatOpenPosition.enumLastMessage%",
+            "%cfg.chatOpenPosition.enumLatest%"
           ],
           "description": "%cfg.chatOpenPosition%",
           "scope": "application",
           "order": 100
+        },
+        "codexHistoryViewer.chat.performanceMode": {
+          "type": "string",
+          "default": "auto",
+          "enum": [
+            "auto",
+            "normal",
+            "simplified"
+          ],
+          "enumItemLabels": [
+            "%cfg.chatPerformanceMode.labelAuto%",
+            "%cfg.chatPerformanceMode.labelNormal%",
+            "%cfg.chatPerformanceMode.labelSimplified%"
+          ],
+          "enumDescriptions": [
+            "%cfg.chatPerformanceMode.enumAuto%",
+            "%cfg.chatPerformanceMode.enumNormal%",
+            "%cfg.chatPerformanceMode.enumSimplified%"
+          ],
+          "description": "%cfg.chatPerformanceMode%",
+          "scope": "application",
+          "order": 101
         },
         "codexHistoryViewer.chat.toolDisplayMode": {
           "type": "string",
@@ -2024,7 +2102,7 @@
           ],
           "description": "%cfg.chatToolDisplayMode%",
           "scope": "application",
-          "order": 101
+          "order": 102
         },
         "codexHistoryViewer.chat.userLongMessageFolding": {
           "type": "string",
@@ -2046,7 +2124,7 @@
           ],
           "description": "%cfg.chatUserLongMessageFolding%",
           "scope": "application",
-          "order": 102
+          "order": 103
         },
         "codexHistoryViewer.chat.assistantLongMessageFolding": {
           "type": "string",
@@ -2068,7 +2146,7 @@
           ],
           "description": "%cfg.chatAssistantLongMessageFolding%",
           "scope": "application",
-          "order": 103
+          "order": 104
         },
         "codexHistoryViewer.images.enabled": {
           "type": "boolean",
@@ -2142,9 +2220,26 @@
             "ja",
             "en"
           ],
+          "enumItemLabels": [
+            "%cfg.uiLanguage.labelAuto%",
+            "%cfg.uiLanguage.labelJapanese%",
+            "%cfg.uiLanguage.labelEnglish%"
+          ],
+          "enumDescriptions": [
+            "%cfg.uiLanguage.enumAuto%",
+            "%cfg.uiLanguage.enumJapanese%",
+            "%cfg.uiLanguage.enumEnglish%"
+          ],
           "description": "%cfg.uiLanguage%",
           "scope": "application",
           "order": 140
+        },
+        "codexHistoryViewer.ui.timeGuide.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "%cfg.uiTimeGuideEnabled%",
+          "scope": "application",
+          "order": 145
         },
         "codexHistoryViewer.ui.alwaysShowHeaderActions": {
           "type": "boolean",

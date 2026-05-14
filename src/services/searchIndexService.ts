@@ -8,7 +8,7 @@ import { readJson, writeJson } from "../storage/jsonStorage";
 import { normalizeWhitespace } from "../utils/textUtils";
 import type { DebugLogger } from "./logger";
 
-const SEARCH_INDEX_FILE_VERSION = 5;
+const SEARCH_INDEX_FILE_VERSION = 6;
 const MAX_COMMAND_META_LENGTH = 1000;
 const MAX_RECURSIVE_META_DEPTH = 5;
 
@@ -21,11 +21,20 @@ export interface IndexedSearchMessage {
   text: string;
 }
 
+export interface IndexedFileChangeHint {
+  messageIndex: number;
+  paths: string[];
+  timestampIso?: string;
+  origin: "codexPatch" | "toolArguments" | "toolOutput";
+  hasDiffLikeContent: boolean;
+}
+
 interface SearchIndexEntryV1 {
   fsPath: string;
   mtimeMs: number;
   size: number;
   messages: IndexedSearchMessage[];
+  fileChangeHints?: IndexedFileChangeHint[];
 }
 
 interface SearchIndexContext {
@@ -136,7 +145,7 @@ export class SearchIndexService {
       }
 
       const buildStartedAt = nowMs();
-      const messages = await buildIndexedMessages(session.fsPath, {
+      const indexed = await buildIndexedSession(session.fsPath, {
         indexToolContent: context.indexToolContent,
         token,
       });
@@ -145,7 +154,8 @@ export class SearchIndexService {
         fsPath: session.fsPath,
         mtimeMs: stat.mtime,
         size: stat.size,
-        messages,
+        messages: indexed.messages,
+        fileChangeHints: indexed.fileChangeHints,
       });
       rebuilt += 1;
       dirty = true;
@@ -176,6 +186,10 @@ export class SearchIndexService {
 
   public getMessages(cacheKey: string): IndexedSearchMessage[] | null {
     return this.entries.get(cacheKey)?.messages ?? null;
+  }
+
+  public getFileChangeHints(cacheKey: string): IndexedFileChangeHint[] | null {
+    return this.entries.get(cacheKey)?.fileChangeHints ?? null;
   }
 
   private cleanupOrphanEntries(activeKeys: ReadonlySet<string>): number {
@@ -247,12 +261,13 @@ function elapsedMs(startedAt: number): number {
   return Math.max(0, nowMs() - startedAt);
 }
 
-async function buildIndexedMessages(
+async function buildIndexedSession(
   fsPath: string,
   options: { indexToolContent: SearchIndexToolContent; token?: vscode.CancellationToken },
-): Promise<IndexedSearchMessage[]> {
+): Promise<{ messages: IndexedSearchMessage[]; fileChangeHints: IndexedFileChangeHint[] }> {
   const state: BuildState = {
     messages: [],
+    fileChangeHints: [],
     messageIndex: 0,
     toolAnchorByCallId: new Map(),
     indexToolContent: options.indexToolContent,
@@ -279,17 +294,41 @@ async function buildIndexedMessages(
     stream.close();
   }
 
-  return state.messages;
+  return {
+    messages: state.messages,
+    fileChangeHints: dedupeFileChangeHints(state.fileChangeHints),
+  };
 }
 
 interface BuildState {
   messages: IndexedSearchMessage[];
+  fileChangeHints: IndexedFileChangeHint[];
   messageIndex: number;
   toolAnchorByCallId: Map<string, number>;
   indexToolContent: SearchIndexToolContent;
 }
 
 function indexCodexRecord(obj: any, state: BuildState): boolean {
+  if (obj?.type === "event_msg") {
+    const payloadType = typeof obj?.payload?.type === "string" ? obj.payload.type : "";
+    if (payloadType === "patch_apply_end") {
+      const anchor = Math.max(1, state.messageIndex);
+      addFileChangeHint(state, {
+        messageIndex: anchor,
+        paths: extractCodexPatchChangePaths(obj?.payload?.changes),
+        timestampIso:
+          typeof obj?.payload?.timestamp === "string"
+            ? obj.payload.timestamp
+            : typeof obj?.timestamp === "string"
+              ? obj.timestamp
+              : undefined,
+        origin: "codexPatch",
+        hasDiffLikeContent: true,
+      });
+    }
+    return true;
+  }
+
   if (obj?.type !== "response_item") return false;
   const payloadType = obj?.payload?.type;
 
@@ -320,12 +359,27 @@ function indexCodexRecord(obj: any, state: BuildState): boolean {
         : payloadType === "custom_tool_call"
           ? "custom_tool_call"
           : "";
+    const timestampIso = typeof obj?.timestamp === "string" ? obj.timestamp : undefined;
+    const rawInput =
+      payloadType === "custom_tool_call"
+        ? getCustomToolInput(obj?.payload)
+        : typeof obj?.payload?.arguments === "string"
+          ? tryParseJson(obj.payload.arguments) ?? obj.payload.arguments
+          : obj?.payload?.arguments;
     const argsText =
       payloadType === "custom_tool_call"
         ? buildCustomToolCallMetaText(obj?.payload)
         : typeof obj?.payload?.arguments === "string"
           ? normalizeWhitespace(obj.payload.arguments)
           : "";
+
+    addFileChangeHint(state, {
+      messageIndex: anchor,
+      paths: collectFileChangeHintPaths(rawInput, name),
+      timestampIso,
+      origin: "toolArguments",
+      hasDiffLikeContent: hasDiffLikeContent(rawInput),
+    });
 
     if (name) {
       state.messages.push({
@@ -356,12 +410,20 @@ function indexCodexRecord(obj: any, state: BuildState): boolean {
         : typeof obj?.payload?.output === "string"
           ? normalizeWhitespace(obj.payload.output)
           : "";
+    const rawOutput = payloadType === "custom_tool_call_output" ? obj?.payload?.output : obj?.payload?.output;
     if (!outText) return true;
 
     const anchor =
       callId && state.toolAnchorByCallId.has(callId)
         ? state.toolAnchorByCallId.get(callId)!
         : Math.max(1, state.messageIndex);
+    addFileChangeHint(state, {
+      messageIndex: anchor,
+      paths: collectFileChangeHintPaths(rawOutput, ""),
+      timestampIso: typeof obj?.timestamp === "string" ? obj.timestamp : undefined,
+      origin: "toolOutput",
+      hasDiffLikeContent: hasDiffLikeContent(rawOutput),
+    });
     state.messages.push({
       messageIndex: anchor,
       role: "tool",
@@ -389,10 +451,18 @@ function indexClaudeRecord(obj: any, state: BuildState): boolean {
   const anchor = Math.max(1, state.messageIndex);
   const indexToolCalls = shouldIndexToolCalls(state.indexToolContent);
   const indexToolOutputs = shouldIndexToolOutputs(state.indexToolContent);
+  const timestampIso = typeof obj?.timestamp === "string" ? obj.timestamp : undefined;
 
   for (const toolCall of parsed.toolCalls) {
     const callId = toolCall.callId ?? "";
     if (callId) state.toolAnchorByCallId.set(callId, anchor);
+    addFileChangeHint(state, {
+      messageIndex: anchor,
+      paths: collectFileChangeHintPaths(parseToolArgumentsForHints(toolCall.argumentsText), toolCall.name ?? ""),
+      timestampIso,
+      origin: "toolArguments",
+      hasDiffLikeContent: hasDiffLikeContent(toolCall.argumentsText),
+    });
     if (!indexToolCalls) continue;
 
     const name = normalizeWhitespace(toolCall.name ?? "");
@@ -426,6 +496,13 @@ function indexClaudeRecord(obj: any, state: BuildState): boolean {
       callId && state.toolAnchorByCallId.has(callId)
         ? state.toolAnchorByCallId.get(callId)!
         : anchor;
+    addFileChangeHint(state, {
+      messageIndex: linkedAnchor,
+      paths: collectFileChangeHintPaths(outText, ""),
+      timestampIso,
+      origin: "toolOutput",
+      hasDiffLikeContent: hasDiffLikeContent(outText),
+    });
     state.messages.push({
       messageIndex: linkedAnchor,
       role: "tool",
@@ -608,6 +685,81 @@ interface CustomToolCallMeta {
   files: string[];
   paths: string[];
   sawDiffLikeText: boolean;
+}
+
+function addFileChangeHint(state: BuildState, hint: IndexedFileChangeHint): void {
+  const paths = dedupeStrings(hint.paths.map((value) => cleanupDiffPath(value)).filter((value) => value.length > 0));
+  if (paths.length === 0) return;
+  state.fileChangeHints.push({
+    messageIndex: Math.max(1, Math.floor(hint.messageIndex)),
+    paths,
+    ...(hint.timestampIso ? { timestampIso: hint.timestampIso } : {}),
+    origin: hint.origin,
+    hasDiffLikeContent: hint.hasDiffLikeContent,
+  });
+}
+
+function extractCodexPatchChangePaths(changes: unknown): string[] {
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) return [];
+  const paths: string[] = [];
+  for (const [rawPath, rawChange] of Object.entries(changes as Record<string, unknown>)) {
+    addMetaValue(paths, rawPath);
+    if (rawChange && typeof rawChange === "object") {
+      const movePath = (rawChange as { move_path?: unknown }).move_path;
+      if (typeof movePath === "string") addMetaValue(paths, movePath);
+      const unifiedDiff = (rawChange as { unified_diff?: unknown }).unified_diff;
+      if (typeof unifiedDiff === "string") {
+        for (const filePath of extractPatchFilePaths(unifiedDiff)) addMetaValue(paths, filePath);
+      }
+    }
+  }
+  return dedupeStrings(paths);
+}
+
+function collectFileChangeHintPaths(value: unknown, toolName: string): string[] {
+  const meta: CustomToolCallMeta = {
+    commands: [],
+    files: [],
+    paths: [],
+    sawDiffLikeText: false,
+  };
+  collectCustomToolCallMeta(value, meta, { depth: 0, key: "", action: inferToolAction(toolName) });
+  return dedupeStrings([...meta.files, ...meta.paths]);
+}
+
+function parseToolArgumentsForHints(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return tryParseJson(value) ?? value;
+}
+
+function hasDiffLikeContent(value: unknown): boolean {
+  if (typeof value === "string") {
+    return /^\s*(?:\*\*\*|diff --git|--- |\+\+\+ |@@ )/mu.test(value);
+  }
+  if (Array.isArray(value)) return value.some((item) => hasDiffLikeContent(item));
+  if (!value || typeof value !== "object") return false;
+  for (const item of Object.values(value as Record<string, unknown>)) {
+    if (hasDiffLikeContent(item)) return true;
+  }
+  return false;
+}
+
+function dedupeFileChangeHints(hints: IndexedFileChangeHint[]): IndexedFileChangeHint[] {
+  const seen = new Set<string>();
+  const out: IndexedFileChangeHint[] = [];
+  for (const hint of hints) {
+    const key = [
+      hint.messageIndex,
+      hint.origin,
+      hint.timestampIso ?? "",
+      hint.hasDiffLikeContent ? "1" : "0",
+      hint.paths.map((value) => value.toLowerCase()).sort().join("\u0000"),
+    ].join("\u0001");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(hint);
+  }
+  return out;
 }
 
 function getCustomToolInput(payload: any): unknown {
@@ -919,6 +1071,18 @@ function isValidCacheEntry(value: unknown): value is SearchIndexEntryV1 {
     const source = (m as any).source;
     if (source !== "message" && source !== "toolArguments" && source !== "toolOutput") return false;
     if (typeof (m as any).text !== "string") return false;
+  }
+  if (obj.fileChangeHints !== undefined) {
+    if (!Array.isArray(obj.fileChangeHints)) return false;
+    for (const hint of obj.fileChangeHints) {
+      if (!hint || typeof hint !== "object") return false;
+      const h = hint as any;
+      if (typeof h.messageIndex !== "number" || !Number.isFinite(h.messageIndex)) return false;
+      if (!Array.isArray(h.paths) || h.paths.some((p: unknown) => typeof p !== "string")) return false;
+      if (h.timestampIso !== undefined && typeof h.timestampIso !== "string") return false;
+      if (h.origin !== "codexPatch" && h.origin !== "toolArguments" && h.origin !== "toolOutput") return false;
+      if (typeof h.hasDiffLikeContent !== "boolean") return false;
+    }
   }
   return true;
 }

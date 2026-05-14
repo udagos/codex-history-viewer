@@ -1,7 +1,7 @@
 # Codex History Viewer 開発ドキュメント（日本語）
 
-- 最終更新: 2026-05-08
-- 対象バージョン: 1.5.1
+- 最終更新: 2026-05-14
+- 対象バージョン: 2.0.0
 
 ## 1. 概要
 
@@ -69,6 +69,7 @@
 ### 3.2 セッション操作
 
 - `Open in New Tab (Chat)`: Webview で会話をセッションタブとして表示
+- `Custom Title...`: QuickPick からカスタムタイトルの設定 / 消去を選択する
 - `Open Session (Markdown)`: 仮想ドキュメントとして Markdown 化して表示
 - `Copy Prompt Excerpt`: 連携用に短い抜粋をクリップボードへコピー
 - `Resume in OpenAI Codex`: OpenAI Codex 拡張へ引き継ぐ
@@ -77,7 +78,6 @@
 - `Promote to Today (Copy)`: セッションを「今日」の履歴として複製する
 - `Delete`: 削除確認後に削除する
 - `Undo Last Action`: delete / pin / annotation / tag 操作などを 1 手戻す
-- `Set Custom Title` / `Clear Custom Title`: 拡張機能内だけの表示タイトルを設定 / 消去する
 - `Edit Session Annotation`: タグ / ノート編集
 - `Export Sessions`: 生 JSONL または Markdown transcript を出力
 - `Import Sessions`: フォルダ単位で `.jsonl` を再帰取り込み
@@ -145,6 +145,7 @@
   - Codex の `custom_tool_call` は `toolCalls` / `toolCallsAndOutputs` のとき、tool 名、action、command、files、paths などの軽量メタだけを保存する
   - `custom_tool_call` の patch / diff 本文、巨大 JSON、base64 / data URI、secret / token / password 系キーの値は保存しない
   - Codex の `custom_tool_call_output` は `toolCallsAndOutputs` のときだけ、取得できる場合に status / exitCode / durationMs / success / error などの短い実行メタだけを保存する
+  - ファイル履歴向けの `fileChangeHints` は関連セッションの優先付け補助として使う。最終的な diff 抽出結果の正しさは元のセッション JSONL の再解析で担保する
   - 保存形式: 整形なし JSON（サイズ削減のため）
 - `Rebuild Cache`:
   - 実行前に確認ダイアログを出す
@@ -217,12 +218,19 @@
   - 別セッションへ切り替わった場合は閉じる
 - チャットのスクロール領域は固定ヘッダーの下に分離し、スクロールバーがヘッダー横から始まらないようにする
 - チャットヘッダーには、検索ボタンと再読み込みボタンの間に自動更新ボタンを置く
+- チャットヘッダーには、ピン留めボタンの右にカスタムタイトルの pencil アイコンを置き、QuickPick から設定 / 消去を選べるようにする
 - チャットタブの自動更新ボタンは、履歴の自動更新設定が有効なときだけ表示し、`off` / `preserve` / `follow` をクリックで循環する
 - `preserve` / `follow` はボタンの背景色でオン状態を示し、`follow` はさらに別色で追従中であることを示す
 - チャットの先頭 / 末尾スクロールは、スクロールコンテナの絶対端ではなく、実際に描画されている最初 / 最後のカードを対象にする
 - 自動更新 `follow` は、末尾が grouped diff カードの場合に直前の非 diff カードへ追従する。非 diff カードがない場合は最後の diff カードへフォールバックする
 - `Show details` OFF で描画されないカードは、先頭 / 末尾スクロールおよび `follow` の対象に含めない
 - `Show details` OFF では tool 引数 / tool 出力 / patch diff 行などの重い詳細を省略し、必要時に full detail を再読み込みする
+- `chat.performanceMode` は `auto` / `normal` / `simplified` を持つ
+  - `auto`: ファイルサイズ、item 数、diff entry 数、diff 行見積もり、画像数に応じて `normal` / `simplified` を選ぶ
+  - `normal`: 表示状態をできるだけ保持する
+  - `simplified`: diff 本文や詳細を必要時に読み込み、タブ再表示時は重い描画済み section を一時的に軽量化する
+- チャットヘッダーのパフォーマンスモードボタンは、この画面だけの一時設定として `auto` / `normal` / `simplified` を循環する。永続化は設定側で行う
+- タブ再表示や `visibilitychange` 復帰時は restore cover で本文領域を覆い、レイアウト安定後に cover を外す。cover 中は date guide 更新と重い diff body 復元を保留する
 - assistant の model / effort / token usage は `Show details` ON のときだけ、assistant 応答後の細い usage 行として表示する
 - usage 行は初期状態では 1 行表示とし、クリックすると入力 / 出力 / キャッシュ / 推論 / 累計 / context window / rate limit / service tier など取得できた項目だけを展開表示する
 - CWD / Git ブランチ / Git コミット / dirty 状態が取得できた場合は、`Show details` ON のときだけ environment 行として表示する
@@ -231,7 +239,9 @@
 - `chat.openPosition`:
   - `top`: 通常は先頭から開く
   - `lastMessage`: 最後に見えていたメッセージ付近を復元する
+  - `latest`: ヘッダーの末尾ボタンと同じく、描画されている最新のカードへ移動する
   - 保存 / 復元の単位は本文メッセージの `msg-*` アンカーとする
+  - `latest` は保存位置を使わず、表示時点で描画済みの最後のカードを対象にする
   - 保存時に画面内の本文メッセージがない場合は、直前の描画済み本文メッセージを保存し、直前もなければ先頭扱いにする
   - 復元対象の本文メッセージが描画されていない場合は、直前の描画済み本文メッセージへフォールバックし、直前もなければ先頭へ戻す
   - 復元フォールバックでは直後の本文メッセージへは進めない
@@ -240,8 +250,54 @@
 - 再利用タブに表示中の同じセッションをメニューから開いた場合、そのタブをセッションタブへ昇格する
 - ツリー選択 / メニュー操作のどちらでも、同じセッションのチャットタブが既に開いていれば既存タブをアクティブにする
 - Reload とチャットタブの自動更新は、表示位置、選択メッセージ、詳細表示、展開カード、展開 diff、diff 折り返し、検索サイドバー状態を維持する
-- 再利用タブで別セッションへ切り替わる場合は、検索状態、検索リサイズ状態、画像プレビュー、画像データキャッシュなどのセッション依存 UI をリセットする
+- 再利用タブで別セッションへ切り替わる場合は、検索状態、検索リサイズ状態、画像プレビュー、画像データキャッシュ、画像保存先 CWD、patch entry 詳細の pending 要求などのセッション依存 UI / panel-side 状態をリセットする
 - grouped diff カードの最大幅状態は、再読み込みでカードの並び順が変わっても維持しやすいように安定キーで管理する
+
+### 3.6.1 AI Change History（ファイル単位の AI 更新履歴）
+
+- 目的:
+  - ワークスペース内の 1 ファイルを起点に、そのファイルへ影響した Codex / Claude の AI diff 履歴を時系列で確認できるようにする
+  - diff から元の通常履歴 Webview の該当 diff カードへ戻り、会話文脈を確認できるようにする
+- 起動方法:
+  - Command Palette / Explorer ファイル右クリックメニューから `Show File AI Change History` を実行する
+  - Explorer ファイル右クリックメニューへの表示は `codexHistoryViewer.fileChangeHistory.explorerContextMenu.enabled` が `true` のときだけ有効
+  - ディレクトリは対象外。ワークスペース外のファイルも対象外
+- 対象範囲:
+  - 現在開いているワークスペース配下の対象ファイルだけ
+  - `codexHistoryViewer.sources.enabled` で有効な source だけ
+  - Claude は復元可能な diff がある変更だけ表示する
+  - `search.indexToolContent = conversationOnly` でも利用可能。ただし tool メタ情報が検索インデックスに少ないため、関連セッションの優先付け精度が下がる場合がある
+- 表示:
+  - ファイル名 / 相対パス / 総件数 / source 別件数をヘッダーに表示する
+  - Codex / Claude はヘッダーの source toggle で絞り込める
+  - diff card は通常履歴 Webview の diff card と同じ見た目・操作感に寄せる
+  - diff は Webview 内の独自レンダリングで表示し、VS Code 標準 Diff Editor / `vscode.diff` は使わない
+  - 初期表示と追加読み込みは日付昇順
+  - 通常サイズの diff は初期展開し、巨大 diff は折りたたむ
+  - 1 card は選択ファイル 1 変更分として扱う。move / rename で before / after の両方が一致しても 1 card にまとめる
+- 操作:
+  - `対象ファイルを開く`: VS Code の通常エディタで対象ファイルを開く
+  - `ファイルパスをコピー`
+  - `再読み込み`
+  - Webview 内検索（case-insensitive）
+  - `続きを読み込む`
+  - 前 / 次の diff card へ移動。source toggle で絞り込んでいる場合は、表示中 card だけを移動対象にする
+  - `履歴で開く`: 通常履歴 Webview を現在のエディタグループに別タブとして開き、該当 diff card へスクロールする。`patchEntry` reveal では full detail mode を強制しない
+- 追加読み込み:
+  - 成功 / 失敗 / キャンセルのいずれでも現在のスクロール位置を維持する
+  - 追加後は通知相当の短いメッセージだけを表示し、追加分へ自動移動しない
+  - 初回読み込み / 再読み込み後にまだ続きがある場合は、`続きを読み込む` で追加できることを toast で案内する
+  - `続きを読み込む` 成功後もまだ続きがある場合は、追加件数と続きがある旨を同じ toast にまとめ、同系統の toast は重ねず置き換える
+  - 全候補を解析済みの場合は `これ以上の履歴はありません` を表示し、`続きを読み込む` を消す
+- date guide:
+  - `codexHistoryViewer.ui.timeGuide.enabled` が `true` のときだけ表示する
+  - ファイル履歴では範囲に応じて day / month / year に自動スケールする
+  - マウスオーバー、手動スクロール、キーボードスクロールで表示する
+  - 自動更新追従、先頭 / 末尾ボタン、前後カード移動、reveal target への自動ジャンプでは表示しない
+  - 日付ガイド外クリックで即座に閉じる。ただしガイド上にマウスがある間は閉じない
+- source 表示:
+  - source icon は light / dark 両方を Webview へ渡し、VS Code Webview theme class に合わせて切り替える
+  - 色だけで source を区別せず、icon + label を表示する
 
 ### 3.7 設定（`codexHistoryViewer.*`）
 
@@ -255,12 +311,14 @@
 - `search.indexToolContent`
 - `search.caseSensitive`
 - `search.maxResults`
+- `fileChangeHistory.explorerContextMenu.enabled`
 - `history.dateBasis`
 - `history.titleSource`
 - `autoRefresh.enabled`
 - `autoRefresh.debounceMs`
 - `autoRefresh.minIntervalMs`
 - `chat.openPosition`
+- `chat.performanceMode`
 - `chat.toolDisplayMode`
 - `chat.userLongMessageFolding`
 - `chat.assistantLongMessageFolding`
@@ -270,6 +328,7 @@
 - `resume.openTarget`
 - `delete.useTrash`
 - `ui.language`
+- `ui.timeGuide.enabled`
 - `ui.alwaysShowHeaderActions`
 - `debug.logging.enabled`
 
@@ -346,6 +405,54 @@
   - 実ファイルが消えている場合は `stat` 失敗時に該当エントリを削除する
   - `forceRebuild` 指定時は内部エントリをクリアして最初から作り直す
 
+### 4.5.1 AI Change History 実装
+
+- `src/fileHistory/fileChangeHistoryService.ts`
+  - ファイル単位 AI 更新履歴の候補抽出、精密 diff 解析、ページングを担当する
+  - 検索インデックスの `fileChangeHints` は候補順位付けの補助として使う
+  - 最終的な diff card は必ず元のローカルセッション JSONL を読み直して生成する
+  - Codex は `patch_apply_end` を第一候補にし、`apply_patch` 入力と照合して重複 diff を避ける
+  - `apply_patch verification failed` など失敗出力がある場合は成功 diff として扱わない
+  - Claude は `Edit` / `MultiEdit` / `Write` から復元可能な diff だけを `ChatPatchEntry` 相当へ変換する
+  - 絶対パス、workspace 相対パス、session cwd 相対パス、move / rename の before / after path を正規化して照合する
+  - Windows では大小文字差と区切り文字差を吸収する
+- `src/fileHistory/fileChangeHistoryPanelManager.ts`
+  - ファイル履歴 Webview の作成、再利用、reload、load more、通常履歴 Webview への reveal を担当する
+  - panel key は workspace folder + file path で構築し、同じファイルは既存 Webview を再利用する
+  - 同じファイルで再実行した場合は検索状態、scroll、cursor を初期化する
+  - hidden から戻っただけでは Webview state を保持する
+  - `loadMore` は世代管理と `CancellationTokenSource` で古い結果の混入を防ぐ
+  - `履歴で開く` は通常履歴 Webview を現在のエディタグループに別タブとして開き、`patchEntry` reveal target で該当 diff card を開く
+  - `patchEntry` reveal target では通常履歴 Webview を summary mode のまま開き、対象 diff entry の詳細だけを必要時に読み込む
+  - `sendModel` では `initial` / `reload` / `loadMore` の reason を Webview へ渡し、初回・再読み込み時の追加履歴案内と load more 完了通知を分ける
+- `src/fileHistory/fileChangeHistoryTypes.ts`
+  - File AI Change History 用の source、card、query、reveal target などの型を定義する
+- `media/fileChangeHistory.js` / `media/fileChangeHistory.css`
+  - ファイル履歴 Webview のヘッダー、source toggle、検索、diff card、load more、空状態、stale banner を描画する
+  - diff card は通常履歴 Webview の diff card と同じ before / after column、行番号、追加 / 削除表示を使う
+  - loading 表示の fallback はタイトル文言を流用せず、`l10n/bundle.l10n.*` の loading 文言を使う
+  - 検索は読み込み済み card だけを対象にし、追加読み込み後は自動で再検索する
+  - 追加読み込み成功後も scroll 位置を維持する
+  - 初回 / 再読み込み後に `hasMore` が残る場合は `続きを読み込む` の存在を toast で案内し、load more 後も続きがある場合は追加件数と同じ toast にまとめる
+  - 前 / 次 card ナビゲーションは、source toggle 適用後の表示中 card 配列を基準にする
+- `media/sharedTimeGuide.js` / `media/sharedTimeGuide.css`
+  - 通常履歴 Webview とファイル履歴 Webview で共通の date guide を提供する
+  - 設定が無効な場合は date guide DOM を生成しない
+  - 表示単位はモードと範囲に応じて自動スケールする
+  - tooltip は目盛り近辺だけで表示し、ガイド外クリックでは閉じる
+  - Dark / Light / High Contrast で rail / dot が埋もれないよう theme 変数で描画する
+- `src/chat/chatPanelManager.ts` / `media/chatView.js`
+  - 通常履歴 Webview 側で `patchEntry` reveal target を受け取り、対象 diff card を展開・最大幅化・スクロール・一時ハイライトする
+  - source、entryId、path、movePath、timestamp、messageIndex を使って候補 diff card をスコアリングする
+  - `messageIndex` は補助情報として扱い、完全一致しない場合でも diff card 側の一致を優先する
+- `src/settings.ts` / `src/extension.ts`
+  - `fileChangeHistory.explorerContextMenu.enabled` と `ui.timeGuide.enabled` を読み取る
+  - 設定変更時に既存 Webview へ i18n / stale 状態を通知する
+- `package.json` / `package.nls.*`
+  - `Show File AI Change History` コマンド、Explorer context menu、関連設定説明を定義する
+- `l10n/bundle.l10n.*`
+  - ファイル履歴 Webview の表示文字列、エラー、空状態、load more、source 件数、date guide 文字列を管理する
+
 ### 4.6 検索フロー
 
 - `src/services/searchService.ts`
@@ -380,6 +487,7 @@
 - `src/services/chatOpenPositionStore.ts`
   - 最後に見えていた表示位置を `globalState` に最大 100 セッション分保存する
   - 復元には `chat.openPosition = lastMessage` のときだけ使用する
+  - `chat.openPosition = latest` は保存位置を使わず、Webview 側で最新の描画済みカードへ移動する
 
 ### 4.9 表示
 
@@ -390,7 +498,9 @@
   - 既存タブ検索では `session` タブを優先し、なければ同じセッションを表示中の `reusable` タブを使う
   - `ChatPanelManager` は `ChatOpenPositionStore` を使い、明示的な移動先がない場合だけ最後に見えていたメッセージ付近を復元する
   - `ChatPanelManager` は保存可能な画像をパネル単位で保持し、Webview からの保存要求時に `showSaveDialog` 経由で書き出す
+  - `ChatPanelManager` は Webview からの `manageCustomTitle` message を受け取り、共通の `codexHistoryViewer.manageCustomTitle` コマンドを実行する
   - `ChatPanelManager` は表示詳細を `summary` / `full` で管理し、`summary` では tool 引数 / tool 出力 / patch diff 行を Webview model から省略する
+  - `patchEntry` reveal target で開く場合は、`revealMessageIndex` があっても `summary` を維持する
   - `ChatPanelManager` は対応画像の data URI をパネル単位で保持し、Webview からの `requestImageData` に応じて必要な画像データだけ返す
   - `ChatPanelManager` は usage 行のラベルを Webview i18n として渡し、表示文字列を `l10n/bundle.l10n.*` で管理する
   - `chatModelBuilder.ts` は Codex の `turn_context.payload.model` / `effort` を assistant メッセージと usage 行へ付与する
@@ -408,7 +518,9 @@
   - チャットヘッダーの自動更新ボタンは `btnPageSearch` と `btnReload` の間に配置する
   - Webview 側は `requestReload` / `reload` message で自動更新時のスクロール・UI 状態保持を行う
   - Webview 側は `Show details` 切り替え時にカード anchor を保持し、再描画後に同じカードまたは次の表示カードへ復元する
+  - Webview 側は performance mode に応じて heavy diff body の遅延描画、タブ復帰時の hibernation、restore cover 後の復元を行う
   - Webview 側は `lastMessage` の保存 / 復元を本文 `msg-*` アンカー単位で行い、対象が表示されていない場合は直前の描画済み本文メッセージ、なければ先頭へフォールバックする
+  - Webview 側は `latest` のとき、保存位置を参照せず、ヘッダーの末尾ボタンと同じ最新の描画済みカードへスクロールする
   - Webview 側は usage 行を折りたたみ可能カードとして描画し、展開状態を同一セッション reload 中は保持する
   - Webview 側は environment 行を軽量メタカードとして描画し、CWD など長い値は表示崩れしないよう省略 / 折り返しする
   - Webview 側は tool 実行メタ情報を tool カードの meta tag として表示し、status はローカライズ済みラベルへ正規化する
@@ -443,6 +555,7 @@
   - 拡張設定の読み取りヘルパーをまとめる
   - `preview.*`、`search.*`、`history.titleSource`、`autoRefresh.*`、`chat.openPosition`、`chat.toolDisplayMode`、`images.*` などの設定もここで管理する
   - 数値設定は下限 / 上限を丸め、想定外の enum 値は既定値へ戻す
+  - `preview.maxMessages` は `1..50`、`search.maxResults` は `1..10000` に丸め、`package.json` の `minimum` / `maximum` と一致させる
 - `src/utils/dateTimeSettings.ts`
   - 日付時刻表示は VS Code Extension Host のタイムゾーンを使う
   - UI 言語はタイムゾーン決定に使わない
@@ -509,17 +622,36 @@ npm run package
 - `scripts.package` は `vsce package --allow-missing-repository` を実行する
 - 公開配布を前提にする場合は `repository` を正しく設定することを推奨する
 
-### 5.4 v1.5.1 リリースメモ（2026-05-08）
+### 5.4 v2.0.0 リリースメモ（2026-05-14）
+
+- ワークスペース内のファイルを起点に、Codex / Claude の diff 履歴を時系列で確認できる AI Change History を追加した
+- カスタムタイトル操作を QuickPick 入口へ統一し、チャット履歴ビューアのヘッダーからも設定 / 消去できるようにした
+- Explorer のファイル右クリックメニューに `Show File AI Change History` を表示できる設定 `codexHistoryViewer.fileChangeHistory.explorerContextMenu.enabled` を追加した
+- ファイル履歴 Webview では、source toggle、Webview 内検索、前後 card 移動、先頭 / 末尾移動、`続きを読み込む`、`履歴で開く` を提供する
+- `履歴で開く` は通常履歴 Webview を現在のエディタグループに別タブとして開き、該当 diff card へ reveal する
+- `履歴で開く` の `patchEntry` reveal では full detail mode を強制せず、対象 diff entry の詳細だけを必要時に読み込む
+- ファイル履歴 Webview の前後 card 移動は、Codex / Claude source toggle 適用後の表示中 card を基準にする
+- Codex の `patch_apply_end` と `apply_patch` 入力を照合し、成功 patch の重複 diff を避けるようにした
+- Claude の `Edit` / `MultiEdit` / `Write` から復元可能な diff をファイル履歴に表示できるようにした
+- 通常履歴 Webview とファイル履歴 Webview で共通の date guide を追加した。設定 `codexHistoryViewer.ui.timeGuide.enabled` が `true` のときだけ表示する
+- date guide はマウスオーバー、手動スクロール、キーボードスクロール時に表示し、自動更新追従やカード前後移動では表示しない
+- 大きい履歴向けに `chat.performanceMode` を追加し、`auto` / `normal` / `simplified` から既定の表示負荷を選べるようにした
+- `simplified` では重い diff / 詳細の描画を必要時に遅延し、タブ復帰時のレイアウト崩れは restore cover で隠す
+- diff は VS Code 標準 Diff Editor ではなく、拡張機能の Webview 独自レンダリングで表示する
+- 検索インデックスの tool メタ情報をファイル履歴の関連セッション優先付け補助に使うが、最終的な diff は元のローカルセッション JSONL を読み直して生成する
+
+### 5.5 v1.5.1 リリースメモ（2026-05-08）
 
 - 自動更新 `follow` で、末尾が grouped diff カードの場合に本文追従が diff に奪われないよう、直前の非 diff カードを追従対象にするようにした
 - 自動更新 `follow` では pending のカードアンカー復元より追従を優先し、レイアウト更新後に追従位置がずれにくいよう再スクロールするようにした
 - `chat.openPosition = lastMessage` で、画面内に本文メッセージがない位置の保存や、復元対象メッセージが描画されない場合に、直前の描画済み本文メッセージまたは先頭へフォールバックするようにした
+- `chat.openPosition = latest` で、移動先指定のないチャット表示を最新の描画済みカードから開けるようにした
 - チャット末尾ボタンは最後に描画されたカードへ移動するため、diff そのものを確認できる
 - Codex の `custom_tool_call` を、`toolCalls` / `toolCallsAndOutputs` の検索インデックスに軽量メタとして含めるようにした
 - `custom_tool_call` の patch / diff 本文は検索インデックスに入れず、対象ファイルや command など検索の入口になる情報だけを入れるようにした
 - 検索インデックスの cache version を更新し、既存 cache は次回検索時に自動再構築されるようにした
 
-### 5.5 v1.5.0 リリースメモ（2026-05-07）
+### 5.6 v1.5.0 リリースメモ（2026-05-07）
 
 - Codex / Claude セッションに対して、この拡張機能内だけのカスタムタイトルを設定 / 消去できるようにした
 - カスタムタイトルは History / Pinned / チャット Webview のタイトルへ反映し、詳細ツールチップではオリジナルタイトルも確認できるようにした
@@ -528,7 +660,7 @@ npm run package
 - `Rebuild Search Index` コマンドを追加し、検索インデックス設定変更時に再作成へ誘導するようにした
 - Status に拡張機能バージョンを表示するようにした
 
-### 5.6 v1.4.3 リリースメモ（2026-04-30）
+### 5.7 v1.4.3 リリースメモ（2026-04-30）
 
 - `SECURITY.md` を追加し、`markdown-it` の GHSA-38c4-r59v-3vqw / CVE-2026-2327 について、v1.2.2 以降は `markdown-it@14.1.1` を同梱していることを明記した
 - v1.2.1 以前の古い VSIX をインストールまたは再配布しないよう、セキュリティポリシーに明記した
@@ -538,10 +670,49 @@ npm run package
 
 ## 6. 手動テスト観点
 
+- `fileChangeHistory.explorerContextMenu.enabled = false` のとき、Explorer のファイル右クリックに `Show File AI Change History` が表示されない
+- History / Pinned のセッション右クリックで `Custom Title...` が表示され、QuickPick から設定 / 消去を選べる
+- カスタムタイトル未設定のセッションでは QuickPick に消去アクションが出ない
+- チャット履歴ビューアのピン留めボタン右にある pencil アイコンから、同じ QuickPick でカスタムタイトルを設定 / 消去できる
+- チャット履歴ビューアからカスタムタイトルを設定 / 消去した後、タブタイトルと History / Pinned / Search の表示が更新される
+- `fileChangeHistory.explorerContextMenu.enabled = true` のとき、Explorer のファイル右クリックに `Show File AI Change History` が表示される
+- ワークスペース外ファイル、ディレクトリ、存在しないファイルではファイル履歴 Webview が安全に開かれない、または分かりやすいエラーになる
+- Codex のみ有効 / Claude のみ有効 / 両方有効で、ファイル履歴の候補抽出、件数表示、source toggle が期待どおり動く
+- `search.indexToolContent = conversationOnly` でもファイル履歴 Webview が利用できる
+- `search.indexToolContent` に tool 情報を含めた場合、ファイル履歴の関連セッション優先付けヒントとして使われる
+- 対象ファイルに対する Codex `patch_apply_end` がファイル履歴に表示される
+- `apply_patch` 入力と `patch_apply_end` が同じ変更を表す場合、ファイル履歴 card が重複しない
+- 失敗した `apply_patch` / verification failed はファイル履歴 card として表示されない
+- Claude の `Edit` / `MultiEdit` / `Write` で復元可能な diff だけがファイル履歴に表示される
+- move / rename で before path と after path のどちらに一致してもファイル履歴に表示される
+- move / rename で before path と after path の両方が一致しても 1 card だけ表示される
+- ファイル履歴 Webview の初期表示は対象ファイルだけ、Webview 幅いっぱいの diff card として表示される
+- ファイル履歴 Webview の検索は読み込み済み diff card を case-insensitive で検索する
+- 検索中に `続きを読み込む` を実行した場合、追加された card も検索対象に含まれる
+- `続きを読み込む` の成功 / 失敗 / キャンセル後に scroll 位置が維持される
+- 全候補解析後は `続きを読み込む` が消え、`これ以上の履歴はありません` が表示される
+- `履歴で開く` を押すと、通常履歴 Webview が現在のエディタグループに別タブとして開き、該当 diff card へスクロールする
+- ファイル履歴で Codex / Claude source toggle を切り替えた状態でも、前 / 次 card ナビゲーションが表示中 card だけを対象にする
+- `履歴で開く` で通常履歴 Webview を開いても full detail mode が強制されず、対象 diff entry の詳細だけが必要時に読み込まれる
+- ファイル履歴 Webview を見ながら通常履歴 Webview を別タブで確認でき、既存のファイル履歴 Webview が置き換わらない
+- `対象ファイルを開く` で VS Code の通常エディタに対象ファイルが開く
+- source icon は Light / Dark / High Contrast で視認できる
+- `ui.timeGuide.enabled = false` のとき、通常履歴 Webview / ファイル履歴 Webview の date guide が表示されない
+- `ui.timeGuide.enabled = true` のとき、通常履歴 Webview / ファイル履歴 Webview の date guide が表示される
+- date guide は表示範囲に応じて、通常履歴では時刻 / 日付+時刻 / 日 / 月、ファイル履歴では day / month / year に自動スケールする
+- date guide はマウスオーバー、wheel / trackpad、scrollbar drag、スクロールキーで表示される
+- date guide は自動更新追従、先頭 / 末尾、前後 card 移動、reveal target への自動ジャンプでは表示されない
+- date guide の tooltip は目盛り近辺だけで表示され、カード操作ボタン付近では表示されない
+- date guide 外クリックで date guide が即座に閉じ、下の UI 操作は妨げられない
+- date guide 上にマウスがある間は、目盛り以外をクリックしても date guide が閉じない
+- `chat.performanceMode = auto` で大きい履歴が `simplified` として表示される
+- チャットヘッダーのパフォーマンスモードボタンで、この画面だけ `auto` / `normal` / `simplified` を切り替えられる
+- `simplified` では diff entry を開くまで重い diff 本文が描画されない
+- 長い履歴のタブを切り替えて戻っても、本文領域の一瞬の縮小表示が restore cover で見えにくい
 - Codex のみ有効 / Claude のみ有効 / 両方有効で履歴が正しく出る
 - `History` の日付 / プロジェクト / ソース / タグ絞り込みが期待どおり動く
 - `History` の表示モードを `日付別` / `最新順` で切り替えられ、選択中セッションの操作が維持される
-- History / Pinned の右クリックからカスタムタイトルを設定 / 消去でき、History / Pinned / チャット Webview タイトルへ反映される
+- History / Pinned の右クリックから QuickPick 経由でカスタムタイトルを設定 / 消去でき、History / Pinned / チャット Webview タイトルへ反映される
 - カスタムタイトルがあるセッションの詳細ツールチップにオリジナルタイトルが表示される
 - 121 文字以上のカスタムタイトル入力ではエラーになり、保存されない
 - `preview.tooltipMode` を `full` / `compact` / `titleOnly` で切り替えると、ツリー項目ツールチップの表示量が変わる
@@ -564,8 +735,9 @@ npm run package
 - 自動更新で Search 結果が勝手にクリアされない
 - `Show details` を ON/OFF しても、切り替え前に見ていたカードまたは次の表示カードへスクロールが復元される
 - 詳細 OFF の大型セッションで tool 詳細、patch diff 行、画像 data URI が初回描画時にまとめて読み込まれず、詳細表示・diff 展開・画像表示時に必要分が読み込まれる
-- 再利用タブで別セッションへ切り替えたとき、検索状態、画像プレビュー、画像データキャッシュが前セッションから残らない
+- 再利用タブで別セッションへ切り替えたとき、検索状態、画像プレビュー、画像データキャッシュ、画像保存先 CWD、patch entry 詳細の pending 要求が前セッションから残らない
 - `Search` が履歴側の絞り込み条件に追従する
+- `settings.json` で `preview.maxMessages` / `search.maxResults` に範囲外の値を入れても、設定読み取り時に許容範囲へ丸められる
 - `Search` のロール設定、保存済み検索、再検索、タグ絞り込みが動く
 - `search.indexToolContent` を `conversationOnly` / `toolCalls` / `toolCallsAndOutputs` で切り替えると、検索インデックスに入るツール情報の範囲が変わる
 - `toolCalls` / `toolCallsAndOutputs` で Codex の `custom_tool_call` の tool 名、command、対象ファイルパスが検索にヒットする
@@ -588,6 +760,7 @@ npm run package
 - `history.dateBasis` を `started` / `lastActivity` で切り替えると履歴ツリーの日付グループが正しく変わる
 - `chat.openPosition = top` のとき、移動先指定のないチャット表示が先頭から開く
 - `chat.openPosition = lastMessage` のとき、同じセッションを開き直すと最後に見ていたメッセージ付近へ戻る
+- `chat.openPosition = latest` のとき、移動先指定のないチャット表示が最新の描画済みカードから開く
 - 保存位置がない場合、または保存位置が現在の詳細表示設定で表示される先頭メッセージの場合は、タグ / メモカードが見えるスクロール最上部から開く
 - `chat.openPosition = lastMessage` で tool / usage / diff など本文メッセージが画面内にない位置を最後に見ていた位置として保存した場合、開き直し時は直前の描画済み本文メッセージ付近、直前がなければ先頭へ戻る
 - `chat.openPosition = lastMessage` で保存済みの本文メッセージが現在の表示条件で描画されない場合、直前の描画済み本文メッセージへ戻り、直前がなければ先頭から開く

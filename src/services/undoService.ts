@@ -2,9 +2,11 @@ export interface UndoAction {
   label: string;
   undo: () => Promise<void>;
   cleanup?: (reason: UndoCleanupReason) => Promise<void> | void;
+  postUndoRefresh?: UndoPostRefreshMode;
 }
 
 export type UndoCleanupReason = "discarded" | "cleared" | "undone";
+export type UndoPostRefreshMode = "default" | "none";
 
 export interface UndoServiceOptions {
   maxActions?: number;

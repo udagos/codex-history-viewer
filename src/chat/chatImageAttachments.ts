@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { ChatImageAttachment, ChatImageAttachmentReason } from "./chatTypes";
 
 const MAX_INLINE_IMAGE_BYTES = 20 * 1024 * 1024;
+const DEFAULT_IMAGE_ATTACHMENT_LABEL = "image-attachment";
 const IMAGE_PLACEHOLDER_RE = /<image\b[^>]*>\s*<\/image>|<image\b[^>]*\/>|<image\b[^>]*>|<\/image>/giu;
 
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
@@ -182,7 +183,7 @@ function imageFromDataUri(src: string, maxBytes: number): ChatImageAttachment {
     source: "data",
     src: parsed.src,
     mimeType: parsed.mimeType,
-    label: "Image attachment",
+    label: DEFAULT_IMAGE_ATTACHMENT_LABEL,
   };
 }
 
@@ -204,7 +205,7 @@ async function imageFromLocalPath(rawPath: string, sessionCwd: string | undefine
       source: "local",
       src: `data:${mimeType};base64,${bytes.toString("base64")}`,
       mimeType,
-      label: path.basename(resolved) || "Image attachment",
+      label: path.basename(resolved) || DEFAULT_IMAGE_ATTACHMENT_LABEL,
     };
   } catch {
     return createUnavailableImageAttachment("missing", mimeType, path.basename(resolved));
@@ -348,7 +349,7 @@ function hasReferenceOnlyImagePointer(item: object): boolean {
 function createUnavailableImageAttachment(
   reason: ChatImageAttachmentReason,
   mimeType?: string,
-  label = "Image attachment",
+  label = DEFAULT_IMAGE_ATTACHMENT_LABEL,
 ): ChatImageAttachment {
   return {
     type: "image",
