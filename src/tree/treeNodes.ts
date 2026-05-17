@@ -8,6 +8,7 @@ export type TreeNode =
   | YearNode
   | MonthNode
   | DayNode
+  | FolderNode
   | SessionNode
   | SearchRootNode
   | SearchSessionNode
@@ -51,6 +52,19 @@ export class DayNode {
 
   public get ymd(): string {
     return `${this.year}-${this.month}-${this.day}`;
+  }
+}
+
+export class FolderNode {
+  public readonly kind = "folder";
+  public readonly cwd: string;
+  public readonly cwdShort: string;
+  public readonly pinned: boolean;
+
+  constructor(cwd: string, cwdShort: string, pinned: boolean = false) {
+    this.cwd = cwd;
+    this.cwdShort = cwdShort;
+    this.pinned = pinned;
   }
 }
 
@@ -175,6 +189,8 @@ export function toTreeItemContextValue(node: TreeNode): string {
       return "codexHistoryViewer.searchHelp";
     case "historyEmpty":
       return "codexHistoryViewer.historyEmpty";
+    case "folder":
+      return node.pinned ? "codexHistoryViewer.folderPinned" : "codexHistoryViewer.folder";
     default:
       return "codexHistoryViewer.unknown";
   }

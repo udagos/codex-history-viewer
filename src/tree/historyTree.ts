@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import type { HistoryService } from "../services/historyService";
 import type { PinStore } from "../services/pinStore";
 import type { SessionAnnotationStore } from "../services/sessionAnnotationStore";
-import { HistoryEmptyNode, SessionNode, DayNode, MonthNode, TreeNode, YearNode, toTreeItemContextValue } from "./treeNodes";
+import { HistoryEmptyNode, SessionNode, DayNode, MonthNode, TreeNode, YearNode, FolderNode, toTreeItemContextValue } from "./treeNodes";
 import type { SessionSourceFilter, SessionSummary } from "../sessions/sessionTypes";
 import type { DateScope } from "../types/dateScope";
 import { getConfig } from "../settings";
@@ -11,7 +11,7 @@ import { truncateByDisplayWidth } from "../utils/textUtils";
 import { t } from "../i18n";
 import { buildSessionHoverTooltip } from "./sessionTooltipUtils";
 
-export type HistoryViewMode = "date" | "latest";
+export type HistoryViewMode = "date" | "latest" | "folder";
 
 // Provides the history tree (year -> month -> day -> session).
 export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -200,6 +200,14 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
       item.tooltip = t("tree.tooltip.day", element.ymd);
       return item;
     }
+    if (element instanceof FolderNode) {
+      const label = element.cwdShort || element.cwd || "(Unknown Folder)";
+      const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
+      item.contextValue = toTreeItemContextValue(element);
+      item.iconPath = new vscode.ThemeIcon("folder");
+      item.tooltip = element.cwd || "(Unknown Folder)";
+      return item;
+    }
     if (element instanceof SessionNode) {
       return this.sessionToTreeItem(element.session, element.pinned);
     }
@@ -265,6 +273,28 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
         .filter((s) => this.matchesSession(s))
         .map((s) => new SessionNode(s, this.pinStore.isPinned(s.fsPath)));
       return this.withFilteredEmptyFallback(nodes, shouldFilterSessions);
+    }
+
+    if (this.viewMode === "folder") {
+      if (!element) {
+        const out: FolderNode[] = [];
+        const folders = Array.from(idx.byFolder.keys()).sort((a, b) => a.localeCompare(b));
+        for (const cwd of folders) {
+          const sessions = idx.byFolder.get(cwd) ?? [];
+          if (sessions.some((s) => this.matchesSession(s))) {
+            const sample = sessions.find((s) => s.cwdShort);
+            const cwdShort = sample?.cwdShort || cwd;
+            out.push(new FolderNode(cwd, cwdShort));
+          }
+        }
+        return this.withFilteredEmptyFallback(out, shouldFilterSessions);
+      }
+      if (element instanceof FolderNode) {
+        const sessions = idx.byFolder.get(element.cwd) ?? [];
+        const filtered = sessions.filter((s) => this.matchesSession(s));
+        return filtered.map((s) => new SessionNode(s, this.pinStore.isPinned(s.fsPath)));
+      }
+      return [];
     }
 
     if (!element) {
@@ -418,5 +448,5 @@ function normalizeSourceFilter(value: SessionSourceFilter): SessionSourceFilter 
 }
 
 function normalizeHistoryViewMode(value: HistoryViewMode): HistoryViewMode {
-  return value === "latest" ? "latest" : "date";
+  return value === "latest" ? "latest" : value === "folder" ? "folder" : "date";
 }

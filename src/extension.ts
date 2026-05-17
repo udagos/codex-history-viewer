@@ -37,7 +37,7 @@ import {
   listLegacyFiles,
 } from "./services/storageMaintenanceService";
 import type { TreeNode } from "./tree/treeNodes";
-import { DayNode, MissingPinnedNode, MonthNode, SearchHitNode, YearNode, isSessionNode } from "./tree/treeNodes";
+import { DayNode, FolderNode, MissingPinnedNode, MonthNode, SearchHitNode, YearNode, isSessionNode } from "./tree/treeNodes";
 import {
   ControlTreeDataProvider,
   StatusTreeDataProvider,
@@ -321,6 +321,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const fsPaths: string[] = [];
     for (const t of targets) {
       if (isSessionNode(t)) fsPaths.push(t.session.fsPath);
+      else if (t instanceof FolderNode) {
+        const index = historyService.getIndex();
+        const sessions = index.byFolder.get(t.cwd) ?? [];
+        for (const s of sessions) fsPaths.push(s.fsPath);
+      }
     }
     return dedupeFsPaths(fsPaths);
   };
@@ -366,6 +371,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         for (const [, days] of months) {
           for (const [, sessions] of days) pushMany(sessions);
         }
+        continue;
+      }
+      if (t instanceof FolderNode) {
+        const sessions = index.byFolder.get(t.cwd) ?? [];
+        pushMany(sessions);
       }
     }
     return Array.from(byKey.values());
@@ -1305,6 +1315,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand("codexHistoryViewer.showHistoryDateView", async () => {
       await applyHistoryViewMode("date", { persist: true });
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexHistoryViewer.showHistoryFolderView", async () => {
+      await applyHistoryViewMode("folder", { persist: true });
     }),
   );
 
@@ -2854,6 +2870,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerUiCommandAlias("codexHistoryViewer.ui.en.showHistoryLatestView", "codexHistoryViewer.showHistoryLatestView");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.showHistoryDateView", "codexHistoryViewer.showHistoryDateView");
   registerUiCommandAlias("codexHistoryViewer.ui.en.showHistoryDateView", "codexHistoryViewer.showHistoryDateView");
+  registerUiCommandAlias("codexHistoryViewer.ui.ja.showHistoryFolderView", "codexHistoryViewer.showHistoryFolderView");
+  registerUiCommandAlias("codexHistoryViewer.ui.en.showHistoryFolderView", "codexHistoryViewer.showHistoryFolderView");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.refreshStatusPane", "codexHistoryViewer.refreshStatusPane");
   registerUiCommandAlias("codexHistoryViewer.ui.en.refreshStatusPane", "codexHistoryViewer.refreshStatusPane");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.search", "codexHistoryViewer.search");
@@ -2986,7 +3004,7 @@ function sanitizeHistorySourceFilter(value: unknown): SessionSourceFilter {
 
 function sanitizeHistoryViewMode(value: unknown): HistoryViewMode {
   const s = typeof value === "string" ? value.trim().toLowerCase() : "";
-  return s === "latest" ? "latest" : "date";
+  return s === "latest" ? "latest" : s === "folder" ? "folder" : "date";
 }
 
 function resolveLockedHistorySource(config: CodexHistoryViewerConfig): SessionSourceFilter | null {

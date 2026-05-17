@@ -211,6 +211,12 @@
         "icon": "$(calendar)"
       },
       {
+        "command": "codexHistoryViewer.showHistoryFolderView",
+        "title": "%cmd.showHistoryFolderView%",
+        "category": "%cmd.category%",
+        "icon": "$(folder)"
+      },
+      {
         "command": "codexHistoryViewer.openFileChangeHistory",
         "title": "%cmd.openFileChangeHistory%",
         "category": "%cmd.category%",
@@ -600,6 +606,16 @@
         "command": "codexHistoryViewer.ui.en.showHistoryDateView",
         "title": "Show by Date",
         "icon": "$(calendar)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.ja.showHistoryFolderView",
+        "title": "フォルダー別で表示",
+        "icon": "$(folder)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.en.showHistoryFolderView",
+        "title": "Show by Folder",
+        "icon": "$(folder)"
       },
       {
         "command": "codexHistoryViewer.ui.ja.openSettings",
@@ -1332,6 +1348,14 @@
           "when": "false"
         },
         {
+          "command": "codexHistoryViewer.ui.ja.showHistoryFolderView",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.showHistoryFolderView",
+          "when": "false"
+        },
+        {
           "command": "codexHistoryViewer.ui.cycleHistorySourceAll",
           "when": "false"
         },
@@ -1437,12 +1461,12 @@
         },
         {
           "command": "codexHistoryViewer.ui.ja.showHistoryLatestView",
-          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'date' && codexHistoryViewer.uiLang == 'ja'",
+          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'folder' && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@10"
         },
         {
           "command": "codexHistoryViewer.ui.en.showHistoryLatestView",
-          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'date' && codexHistoryViewer.uiLang != 'ja'",
+          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'folder' && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@10"
         },
         {
@@ -1453,6 +1477,16 @@
         {
           "command": "codexHistoryViewer.ui.en.showHistoryDateView",
           "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'latest' && codexHistoryViewer.uiLang != 'ja'",
+          "group": "navigation@10"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.showHistoryFolderView",
+          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'date' && codexHistoryViewer.uiLang == 'ja'",
+          "group": "navigation@10"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.showHistoryFolderView",
+          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'date' && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation@10"
         },
         {

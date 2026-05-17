@@ -52,4 +52,5 @@ export interface HistoryIndex {
   byYmd: Map<string, SessionSummary[]>; // key: YYYY-MM-DD
   byYm: Map<string, Map<string, SessionSummary[]>>; // YYYY -> (MM -> sessions)
   byY: Map<string, Map<string, Map<string, SessionSummary[]>>>; // YYYY -> MM -> DD -> sessions
+  byFolder: Map<string, SessionSummary[]>; // key: cwd
 }

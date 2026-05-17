@@ -94,6 +94,7 @@ function emptyIndex(sessionsRoot: string): HistoryIndex {
     byYmd: new Map(),
     byYm: new Map(),
     byY: new Map(),
+    byFolder: new Map(),
   };
 }
 
@@ -421,6 +422,10 @@ function buildIndex(sessionsRoot: string, summaries: SessionSummary[]): HistoryI
     const ymMap = idx.byYm.get(yyyy)!;
     if (!ymMap.has(mm)) ymMap.set(mm, []);
     ymMap.get(mm)!.push(s);
+
+    const folder = s.meta.cwd || "";
+    if (!idx.byFolder.has(folder)) idx.byFolder.set(folder, []);
+    idx.byFolder.get(folder)!.push(s);
   }
 
   // Ensure sessions within a day are sorted by time (descending).
@@ -430,6 +435,13 @@ function buildIndex(sessionsRoot: string, summaries: SessionSummary[]): HistoryI
         list.sort((a, b) => (a.timeLabel < b.timeLabel ? 1 : a.timeLabel > b.timeLabel ? -1 : 0));
       }
     }
+  }
+
+  for (const [, list] of idx.byFolder) {
+    list.sort((a, b) => {
+      if (a.localDate !== b.localDate) return a.localDate < b.localDate ? 1 : -1;
+      return a.timeLabel < b.timeLabel ? 1 : a.timeLabel > b.timeLabel ? -1 : 0;
+    });
   }
 
   return idx;

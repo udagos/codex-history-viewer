@@ -26,6 +26,7 @@
   "cmd.filterHistoryCurrentProject": "Filter by Current Project",
   "cmd.showHistoryLatestView": "Show Latest First",
   "cmd.showHistoryDateView": "Show by Date",
+  "cmd.showHistoryFolderView": "Show by Folder",
   "cmd.filterHistorySourceCodex": "Show Codex History Only",
   "cmd.filterHistorySourceClaude": "Show Claude History Only",
   "cmd.clearHistorySourceFilter": "Show All Sources",

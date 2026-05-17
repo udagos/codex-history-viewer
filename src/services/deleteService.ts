@@ -4,7 +4,7 @@ import type { CodexHistoryViewerConfig } from "../settings";
 import type { HistoryIndex, SessionSummary } from "../sessions/sessionTypes";
 import { t } from "../i18n";
 import { normalizeCacheKey } from "../utils/fsUtils";
-import { DayNode, MonthNode, SearchHitNode, SearchSessionNode, SessionNode, YearNode } from "../tree/treeNodes";
+import { DayNode, FolderNode, MonthNode, SearchHitNode, SearchSessionNode, SessionNode, YearNode } from "../tree/treeNodes";
 import type { PinStore } from "./pinStore";
 
 export interface DeletedSessionUndoItem {
@@ -163,6 +163,10 @@ function collectSessionsFromTarget(index: HistoryIndex, target: unknown): Sessio
       for (const [, list] of days) out.push(...list);
     }
     return out;
+  }
+  if (target instanceof FolderNode) {
+    const list = index.byFolder.get(target.cwd) ?? [];
+    return list.slice();
   }
   return [];
 }
