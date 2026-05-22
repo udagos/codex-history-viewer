@@ -5,9 +5,12 @@ import type { PinStore } from "../services/pinStore";
 import type { SessionAnnotationStore } from "../services/sessionAnnotationStore";
 import type { SessionSource, SessionSourceFilter, SessionSummary } from "../sessions/sessionTypes";
 import {
+  FolderNode,
   HistoryEmptyNode,
   MissingPinnedNode,
   PinnedDropHintNode,
+  PinnedFoldersGroupNode,
+  PinnedSessionsGroupNode,
   SessionNode,
   TreeNode,
   missingPinnedLabel,
@@ -19,12 +22,16 @@ import { t } from "../i18n";
 import { buildSessionHoverTooltip } from "./sessionTooltipUtils";
 
 // Provides the pinned sessions view.
+
+export type PinnedViewSortMode = "pinnedAt" | "date" | "name";
+
 export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode> {
   private readonly historyService: HistoryService;
   private readonly pinStore: PinStore;
   private readonly annotationStore: SessionAnnotationStore;
   private sourceFilter: SessionSourceFilter;
   private tagFilter: string[];
+  private sortMode: PinnedViewSortMode;
   private readonly codexIconPath: { light: vscode.Uri; dark: vscode.Uri };
   private readonly claudeIconPath: { light: vscode.Uri; dark: vscode.Uri };
   private readonly emitter = new vscode.EventEmitter<TreeNode | undefined | null | void>();
@@ -37,6 +44,7 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
     annotationStore: SessionAnnotationStore,
     sourceFilter: SessionSourceFilter,
     tagFilter: readonly string[],
+    sortMode: PinnedViewSortMode,
     extensionUri: vscode.Uri,
   ) {
     this.historyService = historyService;
@@ -44,6 +52,7 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
     this.annotationStore = annotationStore;
     this.sourceFilter = normalizeSourceFilter(sourceFilter);
     this.tagFilter = normalizeTagFilter(tagFilter);
+    this.sortMode = sortMode;
     this.codexIconPath = {
       light: vscode.Uri.joinPath(extensionUri, "resources", "icons", "light", "source-codex.svg"),
       dark: vscode.Uri.joinPath(extensionUri, "resources", "icons", "dark", "source-codex.svg"),
@@ -72,8 +81,23 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
     this.sourceFilter = normalizeSourceFilter(sourceFilter);
   }
 
-  private matchesTags(fsPath: string): boolean {
+  public setSortMode(sortMode: PinnedViewSortMode): void {
+    this.sortMode = sortMode;
+  }
+
+  private matchesTags(fsPath: string, session?: SessionSummary): boolean {
     if (this.tagFilter.length === 0) return true;
+    
+    // Check the path itself
+    if (this.pathMatchesTags(fsPath)) return true;
+    
+    // If session is provided, also check its folder
+    if (session && session.meta.cwd && this.pathMatchesTags(session.meta.cwd)) return true;
+    
+    return false;
+  }
+
+  private pathMatchesTags(fsPath: string): boolean {
     const ann = this.annotationStore.get(fsPath);
     if (!ann || ann.tags.length === 0) return false;
     const tagKeys = new Set(ann.tags.map((tag) => normalizeTagKey(tag)));
@@ -93,6 +117,27 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
   }
 
   public getTreeItem(element: TreeNode): vscode.TreeItem {
+    if (element instanceof FolderNode) {
+      const annotation = this.annotationStore.get(element.cwd);
+      const item = new vscode.TreeItem(element.cwdShort, vscode.TreeItemCollapsibleState.Collapsed);
+      item.description = buildSessionDescription("", annotation?.tags ?? []);
+      item.contextValue = toTreeItemContextValue(element);
+      item.iconPath = new vscode.ThemeIcon("folder");
+      item.tooltip = annotation?.note ? `${element.cwd}\n\n${annotation.note}` : element.cwd;
+      return item;
+    }
+    if (element instanceof PinnedFoldersGroupNode) {
+      const item = new vscode.TreeItem(t("tree.pinned.folders"), vscode.TreeItemCollapsibleState.Expanded);
+      item.contextValue = toTreeItemContextValue(element);
+      item.iconPath = new vscode.ThemeIcon("folder-opened");
+      return item;
+    }
+    if (element instanceof PinnedSessionsGroupNode) {
+      const item = new vscode.TreeItem(t("tree.pinned.sessions"), vscode.TreeItemCollapsibleState.Expanded);
+      item.contextValue = toTreeItemContextValue(element);
+      item.iconPath = new vscode.ThemeIcon("history");
+      return item;
+    }
     if (element instanceof SessionNode) {
       // Truncate the tree title to ~20 full-width characters (40 half-width units) and append "...".
       const shortTitle = truncateByDisplayWidth(element.session.displayTitle, 40, "...");
@@ -149,27 +194,108 @@ export class PinnedTreeDataProvider implements vscode.TreeDataProvider<TreeNode>
   }
 
   public async getChildren(element?: TreeNode): Promise<TreeNode[]> {
-    if (element) return [];
     if (!this.initialLoadComplete) {
-      return [new HistoryEmptyNode(t("history.empty.loading"), "sync~spin")];
+      return element ? [] : [new HistoryEmptyNode(t("history.empty.loading"), "sync~spin")];
     }
 
-    const pins = this.pinStore.getAll().sort((a, b) => b.pinnedAt - a.pinnedAt);
-    const nodes: TreeNode[] = [];
+    const pins = this.pinStore.getAll();
+    const folderPins = [];
+    const sessionPins = [];
+
+    const index = this.historyService.getIndex();
     for (const p of pins) {
-      const s = this.historyService.findByFsPath(p.fsPath);
-      if (s) {
-        if (!this.matchesSource(s)) continue;
-        if (!this.matchesTags(s.fsPath)) continue;
-        nodes.push(new SessionNode(s, true));
+      if (index.byFolder.has(p.fsPath)) {
+        folderPins.push(p);
       } else {
-        if (!this.matchesMissingPinnedSource(p.fsPath)) continue;
-        nodes.push(new MissingPinnedNode(p.fsPath));
+        sessionPins.push(p);
       }
     }
-    // Show a drop target even in the initial empty state to avoid DnD no-op right after reload.
-    if (nodes.length === 0) return [new PinnedDropHintNode()];
-    return nodes;
+
+    if (!element) {
+      const nodes: TreeNode[] = [];
+      if (folderPins.length > 0) {
+        nodes.push(new PinnedFoldersGroupNode());
+      }
+      if (sessionPins.length > 0 || folderPins.length === 0) {
+        // Show sessions group if there are sessions, OR if everything is empty to show drop hint.
+        nodes.push(new PinnedSessionsGroupNode());
+      }
+      return nodes;
+    }
+
+    if (element instanceof PinnedFoldersGroupNode) {
+      const nodes: FolderNode[] = [];
+      for (const p of folderPins) {
+        if (!this.matchesTags(p.fsPath)) continue;
+        const cwdShort = path.basename(p.fsPath) || p.fsPath;
+        nodes.push(new FolderNode(p.fsPath, cwdShort, true));
+      }
+      
+      this.sortFolders(nodes, folderPins);
+      return nodes;
+    }
+
+    if (element instanceof PinnedSessionsGroupNode) {
+      const nodes: TreeNode[] = [];
+      const validPins: { node: SessionNode | MissingPinnedNode; pin: { fsPath: string; pinnedAt: number } }[] = [];
+      for (const p of sessionPins) {
+        const s = this.historyService.findByFsPath(p.fsPath);
+        if (s) {
+          if (!this.matchesSource(s)) continue;
+          if (!this.matchesTags(s.fsPath, s)) continue;
+          validPins.push({ node: new SessionNode(s, true), pin: p });
+        } else {
+          if (!this.matchesMissingPinnedSource(p.fsPath)) continue;
+          if (!this.matchesTags(p.fsPath)) continue;
+          validPins.push({ node: new MissingPinnedNode(p.fsPath), pin: p });
+        }
+      }
+      
+      this.sortSessions(validPins);
+      if (validPins.length === 0) return [new PinnedDropHintNode()];
+      return validPins.map(v => v.node);
+    }
+
+    if (element instanceof FolderNode) {
+      const sessions = index.byFolder.get(element.cwd) ?? [];
+      const filtered = sessions.filter((s) => {
+        if (!this.matchesSource(s)) return false;
+        if (!this.matchesTags(s.fsPath, s)) return false;
+        return true;
+      });
+      return filtered.map((s) => new SessionNode(s, this.pinStore.isPinned(s.fsPath)));
+    }
+
+    return [];
+  }
+
+  private sortFolders(nodes: FolderNode[], folderPins: { fsPath: string; pinnedAt: number }[]) {
+    if (this.sortMode === "name") {
+      nodes.sort((a, b) => a.cwdShort.localeCompare(b.cwdShort));
+    } else {
+      // For folders, 'date' and 'pinnedAt' act similarly as pinnedAt for now.
+      const pinnedAtMap = new Map(folderPins.map(p => [p.fsPath, p.pinnedAt]));
+      nodes.sort((a, b) => (pinnedAtMap.get(b.cwd) || 0) - (pinnedAtMap.get(a.cwd) || 0));
+    }
+  }
+
+  private sortSessions(validPins: { node: SessionNode | MissingPinnedNode; pin: { fsPath: string; pinnedAt: number } }[]) {
+    if (this.sortMode === "name") {
+      validPins.sort((a, b) => {
+        const titleA = a.node instanceof SessionNode ? a.node.session.displayTitle : a.pin.fsPath;
+        const titleB = b.node instanceof SessionNode ? b.node.session.displayTitle : b.pin.fsPath;
+        return titleA.localeCompare(titleB);
+      });
+    } else if (this.sortMode === "date") {
+      validPins.sort((a, b) => {
+        const dateA = a.node instanceof SessionNode ? (Date.parse(a.node.session.startedAtIso ?? "0") || 0) : 0;
+        const dateB = b.node instanceof SessionNode ? (Date.parse(b.node.session.startedAtIso ?? "0") || 0) : 0;
+        return dateB - dateA;
+      });
+    } else {
+      // Default to pinnedAt
+      validPins.sort((a, b) => b.pin.pinnedAt - a.pin.pinnedAt);
+    }
   }
 
   private resolveSourceIconPath(source: SessionSource): { light: vscode.Uri; dark: vscode.Uri } {

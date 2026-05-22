@@ -16,7 +16,9 @@ export type TreeNode =
   | SearchHelpNode
   | HistoryEmptyNode
   | MissingPinnedNode
-  | PinnedDropHintNode;
+  | PinnedDropHintNode
+  | PinnedFoldersGroupNode
+  | PinnedSessionsGroupNode;
 
 export class YearNode {
   public readonly kind = "year";
@@ -86,6 +88,14 @@ export class MissingPinnedNode {
   constructor(fsPath: string) {
     this.fsPath = fsPath;
   }
+}
+
+export class PinnedFoldersGroupNode {
+  public readonly kind = "pinnedFoldersGroup";
+}
+
+export class PinnedSessionsGroupNode {
+  public readonly kind = "pinnedSessionsGroup";
 }
 
 export class PinnedDropHintNode {
@@ -191,6 +201,10 @@ export function toTreeItemContextValue(node: TreeNode): string {
       return "codexHistoryViewer.historyEmpty";
     case "folder":
       return node.pinned ? "codexHistoryViewer.folderPinned" : "codexHistoryViewer.folder";
+    case "pinnedFoldersGroup":
+      return "codexHistoryViewer.pinnedFoldersGroup";
+    case "pinnedSessionsGroup":
+      return "codexHistoryViewer.pinnedSessionsGroup";
     default:
       return "codexHistoryViewer.unknown";
   }

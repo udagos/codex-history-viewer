@@ -211,7 +211,22 @@ function matchAnnotationTags(
   annotationStore: SessionAnnotationStore,
 ): boolean {
   if (tagFilter.length === 0) return true;
-  const annotation = annotationStore.get(session.fsPath);
+  
+  // Check session itself
+  if (pathMatchesTags(session.fsPath, tagFilter, annotationStore)) return true;
+  
+  // Also check its folder
+  if (session.meta.cwd && pathMatchesTags(session.meta.cwd, tagFilter, annotationStore)) return true;
+  
+  return false;
+}
+
+function pathMatchesTags(
+  fsPath: string,
+  tagFilter: readonly string[],
+  annotationStore: SessionAnnotationStore,
+): boolean {
+  const annotation = annotationStore.get(fsPath);
   if (!annotation || annotation.tags.length === 0) return false;
 
   const tagKeys = new Set(annotation.tags.map((tag) => normalizeTagKey(tag)));

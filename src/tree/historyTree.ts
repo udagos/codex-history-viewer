@@ -12,6 +12,7 @@ import { t } from "../i18n";
 import { buildSessionHoverTooltip } from "./sessionTooltipUtils";
 
 export type HistoryViewMode = "date" | "latest" | "folder";
+export type HistoryFolderSortMode = "name" | "recentActivity";
 
 // Provides the history tree (year -> month -> day -> session).
 export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode> {
@@ -23,6 +24,7 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
   private projectCwd: string | null;
   private sourceFilter: SessionSourceFilter;
   private tagFilter: string[];
+  private sortMode: HistoryFolderSortMode;
   private initialLoadComplete = false;
   private readonly codexIconPath: { light: vscode.Uri; dark: vscode.Uri };
   private readonly claudeIconPath: { light: vscode.Uri; dark: vscode.Uri };
@@ -38,6 +40,7 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     projectCwd: string | null,
     sourceFilter: SessionSourceFilter,
     tagFilter: readonly string[],
+    sortMode: HistoryFolderSortMode,
     extensionUri: vscode.Uri,
   ) {
     this.historyService = historyService;
@@ -48,6 +51,7 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     this.projectCwd = typeof projectCwd === "string" && projectCwd.trim().length > 0 ? projectCwd.trim() : null;
     this.sourceFilter = normalizeSourceFilter(sourceFilter);
     this.tagFilter = normalizeTagFilter(tagFilter);
+    this.sortMode = sortMode;
     this.codexIconPath = {
       light: vscode.Uri.joinPath(extensionUri, "resources", "icons", "light", "source-codex.svg"),
       dark: vscode.Uri.joinPath(extensionUri, "resources", "icons", "dark", "source-codex.svg"),
@@ -111,7 +115,18 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
 
   private matchesTags(session: SessionSummary): boolean {
     if (this.tagFilter.length === 0) return true;
-    const ann = this.annotationStore.get(session.fsPath);
+    
+    // Check session itself
+    if (this.pathMatchesTags(session.fsPath)) return true;
+    
+    // Also check its folder
+    if (session.meta.cwd && this.pathMatchesTags(session.meta.cwd)) return true;
+    
+    return false;
+  }
+
+  private pathMatchesTags(fsPath: string): boolean {
+    const ann = this.annotationStore.get(fsPath);
     if (!ann || ann.tags.length === 0) return false;
     const tagKeys = new Set(ann.tags.map((tag) => normalizeTagKey(tag)));
     return this.tagFilter.some((tag) => tagKeys.has(normalizeTagKey(tag)));
@@ -203,9 +218,11 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     if (element instanceof FolderNode) {
       const label = element.cwdShort || element.cwd || "(Unknown Folder)";
       const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
+      const annotation = this.annotationStore.get(element.cwd);
+      item.description = buildSessionDescription("", annotation?.tags ?? []);
       item.contextValue = toTreeItemContextValue(element);
       item.iconPath = new vscode.ThemeIcon("folder");
-      item.tooltip = element.cwd || "(Unknown Folder)";
+      item.tooltip = annotation?.note ? `${element.cwd}\n\n${annotation.note}` : element.cwd;
       return item;
     }
     if (element instanceof SessionNode) {
@@ -257,6 +274,10 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     return source === "claude" ? this.claudeIconPath : this.codexIconPath;
   }
 
+  public setSortMode(sortMode: HistoryFolderSortMode): void {
+    this.sortMode = sortMode;
+  }
+
   public async getChildren(element?: TreeNode): Promise<TreeNode[]> {
     if (!element && !this.initialLoadComplete) {
       return [new HistoryEmptyNode(t("history.empty.loading"), "sync~spin")];
@@ -278,14 +299,27 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     if (this.viewMode === "folder") {
       if (!element) {
         const out: FolderNode[] = [];
-        const folders = Array.from(idx.byFolder.keys()).sort((a, b) => a.localeCompare(b));
+        const folders = Array.from(idx.byFolder.keys());
         for (const cwd of folders) {
           const sessions = idx.byFolder.get(cwd) ?? [];
-          if (sessions.some((s) => this.matchesSession(s))) {
+          const folderMatchesTags = this.pathMatchesTags(cwd);
+          if (folderMatchesTags || sessions.some((s) => this.matchesSession(s))) {
             const sample = sessions.find((s) => s.cwdShort);
             const cwdShort = sample?.cwdShort || cwd;
             out.push(new FolderNode(cwd, cwdShort));
           }
+        }
+        if (this.sortMode === "name") {
+          out.sort((a, b) => a.cwdShort.localeCompare(b.cwdShort));
+        } else {
+          // Sort by recent activity
+          out.sort((a, b) => {
+            const aSessions = idx.byFolder.get(a.cwd) ?? [];
+            const bSessions = idx.byFolder.get(b.cwd) ?? [];
+            const aMax = Math.max(...aSessions.map((s) => Date.parse(s.startedAtIso ?? "0") || 0));
+            const bMax = Math.max(...bSessions.map((s) => Date.parse(s.startedAtIso ?? "0") || 0));
+            return bMax - aMax;
+          });
         }
         return this.withFilteredEmptyFallback(out, shouldFilterSessions);
       }

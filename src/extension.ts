@@ -4,8 +4,8 @@ import { resolveUiLanguage, t } from "./i18n";
 import { getConfig, type CodexHistoryViewerConfig } from "./settings";
 import { HistoryService } from "./services/historyService";
 import type { SessionSourceFilter, SessionSummary } from "./sessions/sessionTypes";
-import { PinnedTreeDataProvider } from "./tree/pinnedTree";
-import { HistoryTreeDataProvider, type HistoryViewMode } from "./tree/historyTree";
+import { PinnedTreeDataProvider, type PinnedViewSortMode } from "./tree/pinnedTree";
+import { HistoryTreeDataProvider, type HistoryViewMode, type HistoryFolderSortMode } from "./tree/historyTree";
 import { SearchTreeDataProvider } from "./tree/searchTree";
 import { TranscriptContentProvider } from "./transcript/transcriptProvider";
 import { TranscriptDocumentLinkProvider } from "./transcript/transcriptDocumentLinkProvider";
@@ -61,8 +61,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const HISTORY_SOURCE_FILTER_KEY = "codexHistoryViewer.historySourceFilter.v1";
   const HISTORY_TAG_FILTER_KEY = "codexHistoryViewer.historyTagFilter.v1";
   const PINNED_TAG_FILTER_KEY = "codexHistoryViewer.pinnedTagFilter.v1";
+  const PINNED_SORT_MODE_KEY = "codexHistoryViewer.pinnedSortMode.v1";
   const SEARCH_TAG_FILTER_KEY = "codexHistoryViewer.searchTagFilter.v1";
   const LAST_SEARCH_REQUEST_KEY = "codexHistoryViewer.lastSearchRequest.v1";
+  const HISTORY_FOLDER_SORT_MODE_KEY = "codexHistoryViewer.historyFolderSortMode.v1";
   const SEARCH_DEFAULT_ROLES_CONFIG = "search.defaultRoles";
 
   const updateUiLanguageContext = (): void => {
@@ -139,6 +141,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   void vscode.commands.executeCommand("setContext", "codexHistoryViewer.historySourceSwitchable", true);
 
   let pinnedTagFilter: string[] = sanitizeTagFilter(context.workspaceState.get(PINNED_TAG_FILTER_KEY));
+  let pinnedSortMode: PinnedViewSortMode = sanitizePinnedSortMode(context.workspaceState.get(PINNED_SORT_MODE_KEY));
+  let historyFolderSortMode: HistoryFolderSortMode = sanitizeHistoryFolderSortMode(context.workspaceState.get(HISTORY_FOLDER_SORT_MODE_KEY));
   let historyViewMode: HistoryViewMode = sanitizeHistoryViewMode(context.workspaceState.get(HISTORY_VIEW_MODE_KEY));
   let historyFilter: DateScope = sanitizeDateScope(context.workspaceState.get(HISTORY_FILTER_KEY));
   let historyProjectCwd: string | null = sanitizeProjectCwd(context.workspaceState.get(HISTORY_PROJECT_FILTER_KEY));
@@ -154,6 +158,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     annotationStore,
     historySourceFilter,
     pinnedTagFilter,
+    pinnedSortMode,
     context.extensionUri,
   );
   const historyProvider = new HistoryTreeDataProvider(
@@ -165,6 +170,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     historyProjectCwd,
     historySourceFilter,
     historyTagFilter,
+    historyFolderSortMode,
     context.extensionUri,
   );
   const searchProvider = new SearchTreeDataProvider(pinStore, annotationStore, context.extensionUri);
@@ -330,10 +336,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return dedupeFsPaths(fsPaths);
   };
 
+  const collectEntityFsPaths = (targets: readonly unknown[]): string[] => {
+    const fsPaths: string[] = [];
+    for (const t of targets) {
+      if (isSessionNode(t)) fsPaths.push(t.session.fsPath);
+      else if (t instanceof FolderNode) fsPaths.push(t.cwd);
+    }
+    return dedupeFsPaths(fsPaths);
+  };
+
   const collectUnpinFsPaths = (targets: readonly unknown[]): string[] => {
     const fsPaths: string[] = [];
     for (const t of targets) {
       if (isSessionNode(t)) fsPaths.push(t.session.fsPath);
+      else if (t instanceof FolderNode) fsPaths.push(t.cwd);
       else if (t instanceof MissingPinnedNode) fsPaths.push(t.fsPath);
     }
     return dedupeFsPaths(fsPaths);
@@ -1174,7 +1190,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     void vscode.window.showInformationMessage(t("app.historyReloadHint"));
   };
 
-  const resolveAnnotationTargets = (element?: unknown): SessionSummary[] => {
+  const resolveAnnotationTargetPaths = (element?: unknown): string[] => {
     // Prefer explicit fsPath arguments (from webview actions) over tree selections.
     if (
       element &&
@@ -1183,32 +1199,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       typeof (element as { fsPath?: unknown }).fsPath === "string"
     ) {
       const fsPath = ((element as { fsPath: string }).fsPath ?? "").trim();
-      const direct = fsPath ? historyService.findByFsPath(fsPath) : undefined;
-      return direct ? [direct] : [];
+      return fsPath ? [fsPath] : [];
     }
-    return collectSessionsFromTargets(resolveTargets(element));
+    return collectEntityFsPaths(resolveTargets(element));
   };
 
   type AnnotationSnapshot = Map<string, { tags: string[]; note: string } | null>;
 
-  const snapshotAnnotations = (sessions: readonly SessionSummary[]): AnnotationSnapshot => {
-    const snapshot: AnnotationSnapshot = new Map();
-    for (const s of sessions) {
-      const key = normalizeCacheKey(s.fsPath);
-      const ann = annotationStore.get(s.fsPath);
-      snapshot.set(key, ann ? { tags: [...ann.tags], note: ann.note } : null);
+  const snapshotAnnotations = (fsPaths: readonly string[]): AnnotationSnapshot => {
+    const snap: AnnotationSnapshot = new Map();
+    for (const p of fsPaths) {
+      const a = annotationStore.get(p);
+      snap.set(p, a ? { tags: [...a.tags], note: a.note } : null);
     }
-    return snapshot;
+    return snap;
   };
 
-  const restoreAnnotations = async (
-    sessions: readonly SessionSummary[],
+  const restoreAnnotationsFromSnapshot = async (
     snapshot: AnnotationSnapshot,
   ): Promise<void> => {
-    for (const s of sessions) {
-      const before = snapshot.get(normalizeCacheKey(s.fsPath)) ?? null;
-      if (!before) await annotationStore.remove(s.fsPath);
-      else await annotationStore.set(s.fsPath, { tags: before.tags, note: before.note });
+    for (const [fsPath, before] of snapshot.entries()) {
+      if (!before) await annotationStore.remove(fsPath);
+      else await annotationStore.set(fsPath, { tags: before.tags, note: before.note });
     }
     refreshViews();
   };
@@ -2110,8 +2122,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     vscode.commands.registerCommand("codexHistoryViewer.editSessionAnnotation", async (element?: unknown) => {
-      const sessions = resolveAnnotationTargets(element);
-      if (sessions.length === 0) {
+      const sessionPaths = resolveAnnotationTargetPaths(element);
+      if (sessionPaths.length === 0) {
         void vscode.window.showInformationMessage(t("annotation.noSessionSelected"));
         return;
       }
@@ -2126,12 +2138,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       );
       if (!action) return;
 
-      const previous = snapshotAnnotations(sessions);
-      const sessionPaths = sessions.map((s) => s.fsPath);
+      const previous = snapshotAnnotations(sessionPaths);
       let changed = 0;
 
       if (action.value === "edit") {
-        const seed = sessions.length === 1 ? annotationStore.get(sessions[0]!.fsPath) : null;
+        const seed = sessionPaths.length === 1 ? annotationStore.get(sessionPaths[0]!) : null;
         const tagsInput = await vscode.window.showInputBox({
           title: t("annotation.editTags.title"),
           prompt: t("annotation.editTags.prompt"),
@@ -2148,10 +2159,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
         const tags = normalizeTags(tagsInput.split(","));
         const note = noteInput.trim();
-        for (const s of sessions) {
-          const current = annotationStore.get(s.fsPath);
+        for (const s of sessionPaths) {
+          const current = annotationStore.get(s);
           if (isSameAnnotationValue(current, tags, note)) continue;
-          await annotationStore.set(s.fsPath, { tags, note });
+          await annotationStore.set(s, { tags, note });
           changed += 1;
         }
       } else if (action.value === "addExisting") {
@@ -2172,8 +2183,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         changed = await annotationStore.addTagsMany(sessionPaths, picked.map((x) => x.tag));
       } else {
         const tagUnion = new Map<string, string>();
-        for (const s of sessions) {
-          const current = annotationStore.get(s.fsPath);
+        for (const s of sessionPaths) {
+          const current = annotationStore.get(s);
           for (const tag of current?.tags ?? []) {
             const key = tag.toLowerCase();
             if (!tagUnion.has(key)) tagUnion.set(key, tag);
@@ -2197,8 +2208,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
       refreshViews();
 
-      pushUndoAction(t("undo.label.annotationUpdate", sessions.length), async () => {
-        await restoreAnnotations(sessions, previous);
+      pushUndoAction(t("undo.label.annotationUpdate", sessionPaths.length), async () => {
+        await restoreAnnotationsFromSnapshot(previous);
       });
       offerUndo(t("undo.offer.annotationUpdate", changed));
     }),
@@ -2216,20 +2227,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             : "";
       if (!tag) return;
 
-      const sessions = resolveAnnotationTargets(elementOrArgs);
-      if (sessions.length === 0) return;
+      const sessionPaths = resolveAnnotationTargetPaths(elementOrArgs);
+      if (sessionPaths.length === 0) return;
 
-      const previous = snapshotAnnotations(sessions);
-      const changed = await annotationStore.removeTagsMany(
-        sessions.map((s) => s.fsPath),
-        [tag],
-      );
-      if (changed <= 0) return;
-
-      refreshViews();
-      pushUndoAction(t("undo.label.removeTag", tag), async () => {
-        await restoreAnnotations(sessions, previous);
-      });
+      const previous = snapshotAnnotations(sessionPaths);
+      let changed = 0;
+      for (const p of sessionPaths) {
+        const current = annotationStore.get(p);
+        if (!current) continue;
+        const remaining = current.tags.filter((t) => t.toLowerCase() !== tag.toLowerCase());
+        if (remaining.length === current.tags.length) continue;
+        if (remaining.length === 0 && !current.note) {
+          await annotationStore.remove(p);
+        } else {
+          await annotationStore.set(p, { tags: remaining, note: current.note });
+        }
+        changed++;
+      }
+      if (changed > 0) {
+        refreshViews();
+        pushUndoAction(t("undo.label.annotationUpdate", changed), async () => {
+          await restoreAnnotationsFromSnapshot(previous);
+        });
+      }
     }),
   );
 
@@ -2678,7 +2698,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         fsPaths = session ? [session.fsPath] : [];
       } else {
         const targets = resolveTargets(element);
-        fsPaths = collectSessionFsPaths(targets);
+        fsPaths = collectEntityFsPaths(targets);
       }
       if (fsPaths.length === 0) return;
       const pinnedBefore = new Set(fsPaths.filter((p) => pinStore.isPinned(p)).map((p) => normalizeCacheKey(p)));
@@ -2832,6 +2852,41 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexHistoryViewer.sortPinnedBy", async () => {
+      const action = await vscode.window.showQuickPick(
+        [
+          { label: t("tree.pinned.sortMode.pinnedAt"), value: "pinnedAt" as PinnedViewSortMode },
+          { label: t("tree.pinned.sortMode.date"), value: "date" as PinnedViewSortMode },
+          { label: t("tree.pinned.sortMode.name"), value: "name" as PinnedViewSortMode },
+        ],
+        { title: t("tree.pinned.sortMode.title") },
+      );
+      if (!action || action.value === pinnedSortMode) return;
+      pinnedSortMode = action.value;
+      await context.workspaceState.update(PINNED_SORT_MODE_KEY, pinnedSortMode);
+      pinnedProvider.setSortMode(pinnedSortMode);
+      pinnedProvider.refresh();
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexHistoryViewer.sortHistoryFoldersBy", async () => {
+      const action = await vscode.window.showQuickPick(
+        [
+          { label: t("tree.history.sortMode.name"), value: "name" as HistoryFolderSortMode },
+          { label: t("tree.history.sortMode.recentActivity"), value: "recentActivity" as HistoryFolderSortMode },
+        ],
+        { title: t("tree.history.sortMode.title") },
+      );
+      if (!action || action.value === historyFolderSortMode) return;
+      historyFolderSortMode = action.value;
+      await context.workspaceState.update(HISTORY_FOLDER_SORT_MODE_KEY, historyFolderSortMode);
+      historyProvider.setSortMode(historyFolderSortMode);
+      historyProvider.refresh();
+    }),
+  );
+
   // Register UI command aliases so menu labels can switch by extension language setting.
   // This keeps context menu text independent from VS Code display language.
   const registerUiCommandAlias = (aliasId: string, targetId: string): void => {
@@ -2939,6 +2994,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerUiCommandAlias("codexHistoryViewer.ui.en.deleteTagsGlobally", "codexHistoryViewer.deleteTagsGlobally");
   registerUiCommandAlias("codexHistoryViewer.ui.ja.undoLastAction", "codexHistoryViewer.undoLastAction");
   registerUiCommandAlias("codexHistoryViewer.ui.en.undoLastAction", "codexHistoryViewer.undoLastAction");
+  registerUiCommandAlias("codexHistoryViewer.ui.ja.sortPinnedBy", "codexHistoryViewer.sortPinnedBy");
+  registerUiCommandAlias("codexHistoryViewer.ui.en.sortPinnedBy", "codexHistoryViewer.sortPinnedBy");
+  registerUiCommandAlias("codexHistoryViewer.ui.ja.sortHistoryFoldersBy", "codexHistoryViewer.sortHistoryFoldersBy");
+  registerUiCommandAlias("codexHistoryViewer.ui.en.sortHistoryFoldersBy", "codexHistoryViewer.sortHistoryFoldersBy");
 
   // Initial load on activation.
   try {
@@ -3005,6 +3064,16 @@ function sanitizeHistorySourceFilter(value: unknown): SessionSourceFilter {
 function sanitizeHistoryViewMode(value: unknown): HistoryViewMode {
   const s = typeof value === "string" ? value.trim().toLowerCase() : "";
   return s === "latest" ? "latest" : s === "folder" ? "folder" : "date";
+}
+
+function sanitizePinnedSortMode(value: unknown): PinnedViewSortMode {
+  const s = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return s === "date" ? "date" : s === "name" ? "name" : "pinnedAt";
+}
+
+function sanitizeHistoryFolderSortMode(value: unknown): HistoryFolderSortMode {
+  const s = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return s === "recentActivity" ? "recentActivity" : "name";
 }
 
 function resolveLockedHistorySource(config: CodexHistoryViewerConfig): SessionSourceFilter | null {

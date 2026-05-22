@@ -861,9 +861,24 @@
         "icon": "$(discard)"
       },
       {
-        "command": "codexHistoryViewer.ui.en.undoLastAction",
-        "title": "Undo Last Action",
-        "icon": "$(discard)"
+        "command": "codexHistoryViewer.ui.ja.sortPinnedBy",
+        "title": "ピン留めの並び順を変更...",
+        "icon": "$(sort-precedence)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.en.sortPinnedBy",
+        "title": "Sort Pinned by...",
+        "icon": "$(sort-precedence)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.ja.sortHistoryFoldersBy",
+        "title": "フォルダーの並び順を変更...",
+        "icon": "$(sort-precedence)"
+      },
+      {
+        "command": "codexHistoryViewer.ui.en.sortHistoryFoldersBy",
+        "title": "Sort Folders by...",
+        "icon": "$(sort-precedence)"
       },
       {
         "command": "codexHistoryViewer.resumeSessionInClaude",
@@ -1296,6 +1311,22 @@
           "when": "false"
         },
         {
+          "command": "codexHistoryViewer.ui.ja.sortPinnedBy",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.sortPinnedBy",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.sortHistoryFoldersBy",
+          "when": "false"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.sortHistoryFoldersBy",
+          "when": "false"
+        },
+        {
           "command": "codexHistoryViewer.search",
           "when": "false"
         },
@@ -1430,6 +1461,16 @@
           "group": "navigation"
         },
         {
+          "command": "codexHistoryViewer.ui.ja.sortPinnedBy",
+          "when": "view == codexHistoryViewer.pinnedView && codexHistoryViewer.uiLang == 'ja'",
+          "group": "navigation@11"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.sortPinnedBy",
+          "when": "view == codexHistoryViewer.pinnedView && codexHistoryViewer.uiLang != 'ja'",
+          "group": "navigation@11"
+        },
+        {
           "command": "codexHistoryViewer.ui.ja.filterPinnedByTag",
           "when": "view == codexHistoryViewer.pinnedView && codexHistoryViewer.uiLang == 'ja'",
           "group": "navigation@12"
@@ -1458,6 +1499,16 @@
           "command": "codexHistoryViewer.ui.en.refreshHistoryPane",
           "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.uiLang != 'ja'",
           "group": "navigation"
+        },
+        {
+          "command": "codexHistoryViewer.ui.ja.sortHistoryFoldersBy",
+          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'folder' && codexHistoryViewer.uiLang == 'ja'",
+          "group": "navigation@9"
+        },
+        {
+          "command": "codexHistoryViewer.ui.en.sortHistoryFoldersBy",
+          "when": "view == codexHistoryViewer.historyView && codexHistoryViewer.historyViewMode == 'folder' && codexHistoryViewer.uiLang != 'ja'",
+          "group": "navigation@9"
         },
         {
           "command": "codexHistoryViewer.ui.ja.showHistoryLatestView",
@@ -1758,42 +1809,42 @@
         },
         {
           "command": "codexHistoryViewer.ui.ja.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.folder) && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.folder) && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.ja.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing || viewItem == codexHistoryViewer.folderPinned) && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing || viewItem == codexHistoryViewer.folderPinned) && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.ja.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.folder) && codexHistoryViewer.uiLang == 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.en.pinSession",
-          "when": "viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.session\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.folder) && codexHistoryViewer.uiLang != 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.ja.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing || viewItem == codexHistoryViewer.folderPinned) && codexHistoryViewer.uiLang == 'ja'",
           "group": "inline"
         },
         {
           "command": "codexHistoryViewer.ui.en.unpinSession",
-          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing) && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.sessionPinned\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.sessionMissing || viewItem == codexHistoryViewer.folderPinned) && codexHistoryViewer.uiLang != 'ja'",
           "group": "inline"
         },
         {
@@ -1838,12 +1889,12 @@
         },
         {
           "command": "codexHistoryViewer.ui.ja.editSessionAnnotation",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang == 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.folder || viewItem == codexHistoryViewer.folderPinned) && codexHistoryViewer.uiLang == 'ja'",
           "group": "1_actions"
         },
         {
           "command": "codexHistoryViewer.ui.en.editSessionAnnotation",
-          "when": "viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ && codexHistoryViewer.uiLang != 'ja'",
+          "when": "(viewItem =~ /^codexHistoryViewer\\.(session|sessionPinned|searchSession|searchHit)\\.(codex|claude)(?:\\.customTitle)?$/ || viewItem == codexHistoryViewer.folder || viewItem == codexHistoryViewer.folderPinned) && codexHistoryViewer.uiLang != 'ja'",
           "group": "1_actions"
         },
         {
