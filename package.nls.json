@@ -8,6 +8,7 @@
   "view.control": "Control",
   "view.status": "Status",
   "cmd.category": "Codex History Viewer",
+  "cmd.migrateProjectHistory": "Migrate Project History...",
   "cmd.refresh": "Refresh All",
   "cmd.refreshPinned": "Refresh Pinned",
   "cmd.refreshHistoryPane": "Refresh History",

@@ -22,6 +22,8 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
   private viewMode: HistoryViewMode;
   private filter: DateScope;
   private projectCwd: string | null;
+  private currentWorkspacePath: string | null;
+  private currentWorkspaceProjectId: string | null;
   private sourceFilter: SessionSourceFilter;
   private tagFilter: string[];
   private sortMode: HistoryFolderSortMode;
@@ -38,6 +40,8 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     viewMode: HistoryViewMode,
     filter: DateScope,
     projectCwd: string | null,
+    currentWorkspacePath: string | null,
+    currentWorkspaceProjectId: string | null,
     sourceFilter: SessionSourceFilter,
     tagFilter: readonly string[],
     sortMode: HistoryFolderSortMode,
@@ -49,6 +53,13 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     this.viewMode = viewMode;
     this.filter = filter;
     this.projectCwd = typeof projectCwd === "string" && projectCwd.trim().length > 0 ? projectCwd.trim() : null;
+    this.currentWorkspacePath = typeof currentWorkspacePath === "string" && currentWorkspacePath.trim().length > 0
+      ? currentWorkspacePath.trim()
+      : null;
+    this.currentWorkspaceProjectId =
+      typeof currentWorkspaceProjectId === "string" && currentWorkspaceProjectId.trim().length > 0
+        ? currentWorkspaceProjectId.trim()
+        : null;
     this.sourceFilter = normalizeSourceFilter(sourceFilter);
     this.tagFilter = normalizeTagFilter(tagFilter);
     this.sortMode = sortMode;
@@ -84,6 +95,11 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
     this.projectCwd = typeof projectCwd === "string" && projectCwd.trim().length > 0 ? projectCwd.trim() : null;
   }
 
+  public setCurrentWorkspaceIdentity(workspacePath: string | null, projectId: string | null): void {
+    this.currentWorkspacePath = typeof workspacePath === "string" && workspacePath.trim().length > 0 ? workspacePath.trim() : null;
+    this.currentWorkspaceProjectId = typeof projectId === "string" && projectId.trim().length > 0 ? projectId.trim() : null;
+  }
+
   public setSourceFilter(sourceFilter: SessionSourceFilter): void {
     this.sourceFilter = normalizeSourceFilter(sourceFilter);
   }
@@ -108,6 +124,19 @@ export class HistoryTreeDataProvider implements vscode.TreeDataProvider<TreeNode
   private matchesProject(session: SessionSummary): boolean {
     const projectCwd = this.projectCwd;
     if (!projectCwd) return true;
+
+    const sessionProjectId = typeof session.meta?.projectId === "string" ? session.meta.projectId.trim() : "";
+    const currentProjectId = this.currentWorkspaceProjectId;
+    const currentWorkspacePath = this.currentWorkspacePath;
+    if (
+      currentProjectId &&
+      currentWorkspacePath &&
+      normalizeCacheKey(projectCwd) === normalizeCacheKey(currentWorkspacePath) &&
+      sessionProjectId
+    ) {
+      return sessionProjectId === currentProjectId;
+    }
+
     const cwd = session.meta?.cwd;
     if (typeof cwd !== "string" || cwd.trim().length === 0) return false;
     return normalizeCacheKey(cwd) === normalizeCacheKey(projectCwd);

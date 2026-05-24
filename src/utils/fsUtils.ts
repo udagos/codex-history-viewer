@@ -42,7 +42,19 @@ export async function readFirstLineUtf8(fsPath: string, maxBytes = 512 * 1024): 
 }
 
 export function normalizeCacheKey(fsPath: string): string {
-  // Avoid cache misses caused by Windows case/path-separator differences.
   const normalized = path.normalize(fsPath);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+export function normalizePathForPrefixMatch(fsPath: string): string {
+  const normalized = normalizeCacheKey(fsPath).replace(/\\/g, "/");
+  if (normalized === "/") return normalized;
+  if (/^[a-z]:\/$/i.test(normalized)) return normalized;
+  return normalized.replace(/\/+$/g, "");
+}
+
+export function isSameOrDescendantPath(candidatePath: string, basePath: string): boolean {
+  if (candidatePath === basePath) return true;
+  const base = basePath.endsWith("/") ? basePath : `${basePath}/`;
+  return candidatePath.startsWith(base);
 }

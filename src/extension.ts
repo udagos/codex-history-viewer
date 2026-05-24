@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { resolveUiLanguage, t } from "./i18n";
@@ -47,10 +48,25 @@ import { FileChangeHistoryPanelManager } from "./fileHistory/fileChangeHistoryPa
 import { FileChangeHistoryService } from "./fileHistory/fileChangeHistoryService";
 import { getDateScopeValue, sanitizeDateScope, type DateScope } from "./types/dateScope";
 import { resolveDateTimeSettings } from "./utils/dateTimeSettings";
+import { readJson, writeJson } from "./storage/jsonStorage";
 import { safeDisplayPath } from "./utils/textUtils";
-import { normalizeCacheKey, pathExists } from "./utils/fsUtils";
+import { ensureDir, isSameOrDescendantPath, normalizeCacheKey, normalizePathForPrefixMatch, pathExists } from "./utils/fsUtils";
 
 const SEARCH_ROLE_ORDER: IndexedSearchRole[] = ["user", "assistant", "developer", "tool"];
+const PROJECT_ID_DIR_NAME = ".codex-history-viewer";
+const PROJECT_ID_FILE_NAME = "project-id.json";
+const PROJECT_ID_KNOWN_PATHS_KEY = "codexHistoryViewer.projectIdKnownPaths.v1";
+
+interface WorkspaceProjectIdentityFile {
+  projectId?: string;
+}
+
+interface WorkspaceProjectIdentity {
+  workspacePath: string;
+  projectId: string;
+}
+
+type KnownProjectPaths = Record<string, string[]>;
 
 // Extension entry point. Initializes core services and tree views.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -68,12 +84,65 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const SEARCH_DEFAULT_ROLES_CONFIG = "search.defaultRoles";
 
   const updateUiLanguageContext = (): void => {
-    // Keep the UI language context up to date for menu visibility switching.
-    // The value is fixed to "ja"/"en" because package.json `when` clauses depend on it.
     const lang = resolveUiLanguage();
     void vscode.commands.executeCommand("setContext", "codexHistoryViewer.uiLang", lang);
   };
   updateUiLanguageContext();
+
+  const resolveWorkspaceProjectIdentity = async (
+    workspaceFolder?: vscode.WorkspaceFolder,
+  ): Promise<WorkspaceProjectIdentity | null> => {
+    const folder = workspaceFolder ?? resolveCurrentWorkspaceFolder();
+    if (!folder) return null;
+
+    const workspacePath = folder.uri.fsPath.trim();
+    if (!workspacePath) return null;
+
+    const metadataDirUri = vscode.Uri.joinPath(folder.uri, PROJECT_ID_DIR_NAME);
+    const projectIdUri = vscode.Uri.joinPath(metadataDirUri, PROJECT_ID_FILE_NAME);
+    const stored = await readJson<WorkspaceProjectIdentityFile>(projectIdUri);
+    const existingProjectId = typeof stored?.projectId === "string" ? stored.projectId.trim() : "";
+    if (existingProjectId) {
+      return { workspacePath, projectId: existingProjectId };
+    }
+
+    await ensureDir(metadataDirUri.fsPath);
+    const projectId = randomUUID();
+    await writeJson(projectIdUri, { projectId });
+    return { workspacePath, projectId };
+  };
+
+  const readKnownProjectPaths = (): KnownProjectPaths => {
+    const stored = context.globalState.get<KnownProjectPaths>(PROJECT_ID_KNOWN_PATHS_KEY);
+    return stored && typeof stored === "object" ? stored : {};
+  };
+
+  const writeKnownProjectPaths = async (value: KnownProjectPaths): Promise<void> => {
+    await context.globalState.update(PROJECT_ID_KNOWN_PATHS_KEY, value);
+  };
+
+  const rememberWorkspaceProjectPath = async (identity: WorkspaceProjectIdentity): Promise<void> => {
+    const projectId = identity.projectId.trim();
+    const workspacePath = identity.workspacePath.trim();
+    if (!projectId || !workspacePath) return;
+
+    const known = readKnownProjectPaths();
+    const paths = Array.isArray(known[projectId]) ? known[projectId] : [];
+    const normalizedWorkspace = normalizeCacheKey(workspacePath);
+    const deduped = [workspacePath, ...paths.filter((p) => normalizeCacheKey(p) !== normalizedWorkspace)].slice(0, 8);
+    known[projectId] = deduped;
+    await writeKnownProjectPaths(known);
+  };
+
+  const refreshCurrentWorkspaceProjectIdentity = async (
+    workspaceFolder?: vscode.WorkspaceFolder,
+  ): Promise<WorkspaceProjectIdentity | null> => {
+    currentWorkspaceProjectIdentity = await resolveWorkspaceProjectIdentity(workspaceFolder);
+    if (currentWorkspaceProjectIdentity) {
+      await rememberWorkspaceProjectPath(currentWorkspaceProjectIdentity);
+    }
+    return currentWorkspaceProjectIdentity;
+  };
 
   const pinStore = new PinStore(context.globalState);
   const bookmarkStore = new BookmarkStore(context.globalState);
@@ -85,6 +154,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(logger);
   const historyService = new HistoryService(context.globalStorageUri, config, titleOverrideStore, logger);
   const searchIndexService = new SearchIndexService(context.globalStorageUri, logger);
+  let currentWorkspaceProjectIdentity: WorkspaceProjectIdentity | null = null;
   const transcriptProvider = new TranscriptContentProvider(historyService, annotationStore);
   const chatPanels = new ChatPanelManager(
     context.extensionUri,
@@ -168,6 +238,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     historyViewMode,
     historyFilter,
     historyProjectCwd,
+    null,
+    null,
     historySourceFilter,
     historyTagFilter,
     historyFolderSortMode,
@@ -906,11 +978,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       statusProvider.refresh();
     }),
   );
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeWorkspaceFolders(() => {
-      statusProvider.refresh();
-    }),
-  );
 
   const resolveActiveSelection = (): readonly unknown[] => {
     // Prefer selection from the last interacted view to avoid bulk actions on the wrong view.
@@ -1095,6 +1162,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   const refreshHistoryIndex = async (forceRebuildCache: boolean): Promise<void> => {
+    await refreshCurrentWorkspaceProjectIdentity();
+    historyProvider.setCurrentWorkspaceIdentity(
+      currentWorkspaceProjectIdentity?.workspacePath ?? null,
+      currentWorkspaceProjectIdentity?.projectId ?? null,
+    );
+    if (currentWorkspaceProjectIdentity) {
+      await ensureCurrentProjectHistoryStamped(
+        currentWorkspaceProjectIdentity.workspacePath,
+        currentWorkspaceProjectIdentity.projectId,
+      );
+    }
+
     const latestConfig = getConfig();
     historyService.updateConfig(latestConfig);
     const constrainedSource = resolveConstrainedHistorySourceFilter(historySourceFilter, latestConfig);
@@ -1141,6 +1220,302 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       setHasSearchResultsContext(searchProvider.root !== null);
     }
     statusProvider.refresh();
+  };
+
+  const rewriteJsonlProjectMetadata = async (
+    dirUri: vscode.Uri,
+    options: { oldPath?: string; newPath?: string; projectId?: string },
+  ): Promise<void> => {
+    const oldPath = typeof options.oldPath === "string" ? options.oldPath.trim() : "";
+    const newPath = typeof options.newPath === "string" ? options.newPath.trim() : "";
+    const projectId = typeof options.projectId === "string" ? options.projectId.trim() : "";
+    const jsonEscapedOldPath = oldPath ? JSON.stringify(oldPath).slice(1, -1) : "";
+    const jsonEscapedNewPath = newPath ? JSON.stringify(newPath).slice(1, -1) : "";
+    const cwdRegex =
+      oldPath && newPath
+        ? new RegExp(`("cwd"\\s*:\\s*")(${escapeRegExp(jsonEscapedOldPath)})(")`, "ig")
+        : null;
+    const entries = await vscode.workspace.fs.readDirectory(dirUri);
+    for (const [name, type] of entries) {
+      const entryUri = vscode.Uri.joinPath(dirUri, name);
+      if ((type & vscode.FileType.Directory) !== 0) {
+        await rewriteJsonlProjectMetadata(entryUri, options);
+        continue;
+      }
+      if ((type & vscode.FileType.File) === 0 || !name.endsWith(".jsonl")) continue;
+
+      const contentArray = await vscode.workspace.fs.readFile(entryUri);
+      const text = Buffer.from(contentArray).toString("utf8");
+      let updated = text;
+
+      if (cwdRegex) {
+        cwdRegex.lastIndex = 0;
+        updated = updated.replace(cwdRegex, (_match, p1, p2, p3) => `${p1}${jsonEscapedNewPath}${p3}`);
+      }
+
+      if (projectId) {
+        const lines = updated.split(/\r?\n/);
+        let changedProjectId = false;
+        for (let i = 0; i < lines.length; i += 1) {
+          const line = lines[i];
+          if (!line) continue;
+          let obj: unknown;
+          try {
+            obj = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (!obj || typeof obj !== "object") continue;
+
+          const record = obj as Record<string, unknown>;
+          if (record.type === "session_meta" && record.payload && typeof record.payload === "object") {
+            const payload = record.payload as Record<string, unknown>;
+            if (payload.projectId !== projectId) {
+              payload.projectId = projectId;
+              lines[i] = JSON.stringify(record);
+              changedProjectId = true;
+            }
+            continue;
+          }
+
+          if (typeof record.cwd === "string") {
+            if (record.projectId !== projectId) {
+              record.projectId = projectId;
+              lines[i] = JSON.stringify(record);
+              changedProjectId = true;
+            }
+            break;
+          }
+        }
+
+        if (changedProjectId) {
+          updated = lines.join("\n");
+        }
+      }
+
+      if (updated === text) continue;
+      await vscode.workspace.fs.writeFile(entryUri, Buffer.from(updated, "utf8"));
+    }
+  };
+
+  const ensureCurrentProjectHistoryStamped = async (workspacePath: string, projectId: string): Promise<void> => {
+    const trimmedWorkspacePath = workspacePath.trim();
+    const trimmedProjectId = projectId.trim();
+    if (!trimmedWorkspacePath || !trimmedProjectId) return;
+
+    const claudeRoot = getConfig().claudeSessionsRoot;
+    const dirUri = vscode.Uri.file(path.join(claudeRoot, calculateClaudeProjectDirName(trimmedWorkspacePath)));
+    if (!(await pathExists(dirUri.fsPath))) return;
+
+    await rewriteJsonlProjectMetadata(dirUri, { projectId: trimmedProjectId });
+  };
+
+  const mergeJsonlFiles = async (sourceFileUri: vscode.Uri, targetFileUri: vscode.Uri): Promise<void> => {
+    const sourceText = Buffer.from(await vscode.workspace.fs.readFile(sourceFileUri)).toString("utf8");
+    const targetText = Buffer.from(await vscode.workspace.fs.readFile(targetFileUri)).toString("utf8");
+    if (sourceText === targetText) {
+      await vscode.workspace.fs.delete(sourceFileUri, { recursive: false, useTrash: false });
+      return;
+    }
+
+    const mergedLines: string[] = [];
+    const seen = new Set<string>();
+    for (const line of `${sourceText}\n${targetText}`.split(/\r?\n/)) {
+      if (!line || seen.has(line)) continue;
+      seen.add(line);
+      mergedLines.push(line);
+    }
+
+    const mergedText = mergedLines.join("\n");
+    await vscode.workspace.fs.writeFile(targetFileUri, Buffer.from(mergedText, "utf8"));
+    await vscode.workspace.fs.delete(sourceFileUri, { recursive: false, useTrash: false });
+  };
+
+  const mergeMigratedDirectory = async (sourceDirUri: vscode.Uri, targetDirUri: vscode.Uri): Promise<void> => {
+    await vscode.workspace.fs.createDirectory(targetDirUri);
+    const entries = await vscode.workspace.fs.readDirectory(sourceDirUri);
+    for (const [name, type] of entries) {
+      const sourceEntryUri = vscode.Uri.joinPath(sourceDirUri, name);
+      const targetEntryUri = vscode.Uri.joinPath(targetDirUri, name);
+      if ((type & vscode.FileType.Directory) !== 0) {
+        await mergeMigratedDirectory(sourceEntryUri, targetEntryUri);
+        try {
+          await vscode.workspace.fs.delete(sourceEntryUri, { recursive: false, useTrash: false });
+        } catch {
+          // Keep non-empty directories (for example `memory/`) so session-history migration is not blocked by unrelated files.
+        }
+        continue;
+      }
+      if ((type & vscode.FileType.File) === 0) continue;
+      if (!(await pathExists(targetEntryUri.fsPath))) {
+        await vscode.workspace.fs.rename(sourceEntryUri, targetEntryUri, { overwrite: false });
+        continue;
+      }
+      if (name.endsWith(".jsonl")) {
+        await mergeJsonlFiles(sourceEntryUri, targetEntryUri);
+        continue;
+      }
+      logger.debug(`skip non-session file conflict during migration: ${targetEntryUri.fsPath}`);
+    }
+  };
+
+  const runProjectHistoryMigration = async (
+    oldPath: string,
+    newPath: string,
+    options?: { projectId?: string },
+  ): Promise<boolean> => {
+    const trimmedOldPath = oldPath.trim();
+    const trimmedNewPath = newPath.trim();
+    const projectId = typeof options?.projectId === "string" ? options.projectId.trim() : "";
+    if (!trimmedOldPath || !trimmedNewPath) return false;
+
+    const claudeRoot = getConfig().claudeSessionsRoot;
+    const oldDirUri = vscode.Uri.file(path.join(claudeRoot, calculateClaudeProjectDirName(trimmedOldPath)));
+    const newDirUri = vscode.Uri.file(path.join(claudeRoot, calculateClaudeProjectDirName(trimmedNewPath)));
+
+    const oldDirExists = await pathExists(oldDirUri.fsPath);
+    const newDirExists = await pathExists(newDirUri.fsPath);
+    if (!oldDirExists && !newDirExists) return false;
+
+    if (oldDirExists && normalizeCacheKey(oldDirUri.fsPath) !== normalizeCacheKey(newDirUri.fsPath)) {
+      await mergeMigratedDirectory(oldDirUri, newDirUri);
+      try {
+        await vscode.workspace.fs.delete(oldDirUri, { recursive: false, useTrash: false });
+      } catch {
+        // Leave non-session leftovers in place so automatic retries can continue without losing migrated history.
+      }
+    } else if (!newDirExists) {
+      return false;
+    }
+
+    await rewriteJsonlProjectMetadata(newDirUri, {
+      oldPath: trimmedOldPath,
+      newPath: trimmedNewPath,
+      projectId,
+    });
+    return true;
+  };
+
+  const maybeAutoMigrateProjectHistory = async (workspaceFsPath: string): Promise<boolean> => {
+    const targetPath = workspaceFsPath.trim();
+    const targetKey = normalizePathForPrefixMatch(targetPath);
+    if (!targetKey) return false;
+
+    const targetIdentity =
+      currentWorkspaceProjectIdentity && normalizeCacheKey(currentWorkspaceProjectIdentity.workspacePath) === normalizeCacheKey(targetPath)
+        ? currentWorkspaceProjectIdentity
+        : await refreshCurrentWorkspaceProjectIdentity(vscode.workspace.getWorkspaceFolder(vscode.Uri.file(targetPath)));
+    const targetProjectId = targetIdentity?.projectId ?? "";
+    const targetDirname = path.basename(targetKey);
+    const targetParent = path.dirname(targetKey);
+    const claudeRoot = getConfig().claudeSessionsRoot;
+    const targetDirUri = vscode.Uri.file(path.join(claudeRoot, calculateClaudeProjectDirName(targetPath)));
+    const targetDirExists = await pathExists(targetDirUri.fsPath);
+
+    if (targetIdentity) {
+      const knownPaths = readKnownProjectPaths()[targetIdentity.projectId] ?? [];
+      const legacyCandidates = knownPaths.filter((candidatePath) => {
+        const trimmed = candidatePath.trim();
+        if (!trimmed) return false;
+        return normalizeCacheKey(trimmed) !== normalizeCacheKey(targetPath);
+      });
+
+      for (const candidatePath of legacyCandidates) {
+        const candidateDir = path.join(claudeRoot, calculateClaudeProjectDirName(candidatePath));
+        if (!(await pathExists(candidateDir))) continue;
+        if (await runProjectHistoryMigration(candidatePath, targetPath, { projectId: targetProjectId })) {
+          logger.debug(`auto migrated Claude history from remembered path: ${candidatePath} -> ${targetPath}`);
+          return true;
+        }
+      }
+    }
+
+    const sessionCandidates = new Map<
+      string,
+      {
+        cwd: string;
+        sessionCount: number;
+        sourceDirExists: boolean;
+        recoverable: boolean;
+        sameParent: boolean;
+        sameDirname: boolean;
+        projectIdMatch: boolean;
+      }
+    >();
+
+    for (const session of historyService.getIndex().sessions) {
+      if (session.source !== "claude") continue;
+      const cwd = typeof session.meta?.cwd === "string" ? session.meta.cwd.trim() : "";
+      if (!cwd) continue;
+      const cwdKey = normalizePathForPrefixMatch(cwd);
+      if (!cwdKey || cwdKey === targetKey) continue;
+
+      const sessionProjectId = typeof session.meta?.projectId === "string" ? session.meta.projectId.trim() : "";
+      const projectIdMatch = !!targetProjectId && sessionProjectId === targetProjectId;
+      const cwdDirname = path.basename(cwdKey);
+      const cwdParent = path.dirname(cwdKey);
+      const sameParent = cwdParent === targetParent;
+      const sameDirname = cwdDirname === targetDirname;
+      if (!projectIdMatch && !sameParent && !sameDirname) continue;
+
+      const projectDir = path.join(claudeRoot, calculateClaudeProjectDirName(cwd));
+      const sourceDirExists = await pathExists(projectDir);
+      const recoverable = sourceDirExists || targetDirExists;
+      if (!recoverable) continue;
+
+      const existing = sessionCandidates.get(cwdKey);
+      if (existing) {
+        existing.sessionCount += 1;
+        existing.sourceDirExists = existing.sourceDirExists || sourceDirExists;
+        existing.recoverable = existing.recoverable || recoverable;
+        existing.sameParent = existing.sameParent || sameParent;
+        existing.sameDirname = existing.sameDirname || sameDirname;
+        existing.projectIdMatch = existing.projectIdMatch || projectIdMatch;
+      } else {
+        sessionCandidates.set(cwdKey, {
+          cwd,
+          sessionCount: 1,
+          sourceDirExists,
+          recoverable,
+          sameParent,
+          sameDirname,
+          projectIdMatch,
+        });
+      }
+    }
+
+    const preferredCandidates = Array.from(sessionCandidates.values()).filter(
+      (candidate) => candidate.recoverable && candidate.sessionCount > 0 && candidate.projectIdMatch,
+    );
+    const strongCandidates = preferredCandidates.length > 0
+      ? preferredCandidates
+      : Array.from(sessionCandidates.values()).filter(
+          (candidate) => candidate.recoverable && candidate.sessionCount > 0 && candidate.sameParent,
+        );
+    if (strongCandidates.length !== 1) return false;
+
+    const candidate = strongCandidates[0]!;
+    if (!(await runProjectHistoryMigration(candidate.cwd, targetPath, { projectId: targetProjectId }))) return false;
+
+    logger.debug(`auto migrated Claude history: ${candidate.cwd} -> ${targetPath}`);
+    return true;
+  };
+
+  const refreshAfterProjectHistoryMigration = async (): Promise<void> => {
+    await refreshHistoryIndex(false);
+    refreshViews({ clearSearch: true });
+    controlProvider.refresh();
+    chatPanels.refreshTitles();
+  };
+
+  const maybeAutoMigrateAndRefresh = async (workspaceFsPath: string): Promise<void> => {
+    try {
+      const migrated = await maybeAutoMigrateProjectHistory(workspaceFsPath);
+      if (!migrated) return;
+      await refreshAfterProjectHistoryMigration();
+    } catch (error) {
+      logger.debug(`auto migration failed: ${sanitizeDebugError(error)}`);
+    }
   };
 
   const computeAutoRefreshConsumerVisible = (): boolean =>
@@ -1256,6 +1631,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       annotationStore,
       historyFilter,
       historyProjectCwd,
+      currentWorkspaceProjectIdentity?.workspacePath ?? null,
+      currentWorkspaceProjectIdentity?.projectId ?? null,
       historySourceFilter,
       {
         request,
@@ -1285,6 +1662,49 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   // Register commands (palette + context menus).
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexHistoryViewer.migrateProjectHistory", async () => {
+      const workspaceFolder = resolveCurrentWorkspaceFolder();
+      if (!workspaceFolder) {
+        void vscode.window.showErrorMessage(t("msg.migrate.noWorkspace"));
+        return;
+      }
+
+      const targetPath = workspaceFolder.uri.fsPath;
+      const oldPathInput = await vscode.window.showInputBox({
+        prompt: t("prompt.migrate.oldPath"),
+        placeHolder: "C:\\Projects\\OldName",
+        ignoreFocusOut: true,
+      });
+
+      if (!oldPathInput) return;
+      const oldPath = oldPathInput.trim();
+      if (!oldPath) return;
+
+      try {
+        const workspaceIdentity = await refreshCurrentWorkspaceProjectIdentity(workspaceFolder);
+        if (workspaceIdentity) {
+          const known = readKnownProjectPaths();
+          const existing = Array.isArray(known[workspaceIdentity.projectId]) ? known[workspaceIdentity.projectId] : [];
+          known[workspaceIdentity.projectId] = [oldPath, ...existing.filter((p) => normalizeCacheKey(p) !== normalizeCacheKey(oldPath))].slice(0, 8);
+          await writeKnownProjectPaths(known);
+        }
+        const migrated = await runProjectHistoryMigration(oldPath, targetPath, {
+          projectId: workspaceIdentity?.projectId,
+        });
+        if (!migrated) {
+          void vscode.window.showErrorMessage(t("msg.migrate.oldNotFound", oldPath, calculateClaudeProjectDirName(oldPath)));
+          return;
+        }
+
+        void vscode.window.showInformationMessage(t("msg.migrate.success", oldPath, targetPath));
+        await refreshAfterProjectHistoryMigration();
+      } catch (error) {
+        void vscode.window.showErrorMessage(t("msg.migrate.error", String(error)));
+      }
+    }),
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand("codexHistoryViewer.refresh", async () => {
       await vscode.window.withProgress(
@@ -2522,6 +2942,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       }
 
+      await refreshCurrentWorkspaceProjectIdentity(workspaceFolder);
       const idx = historyService.getIndex();
       const targetProjectCwd = resolveCurrentProjectFilterCwd(idx, workspaceFolder.uri.fsPath);
       const sameProject =
@@ -2999,6 +3420,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   registerUiCommandAlias("codexHistoryViewer.ui.ja.sortHistoryFoldersBy", "codexHistoryViewer.sortHistoryFoldersBy");
   registerUiCommandAlias("codexHistoryViewer.ui.en.sortHistoryFoldersBy", "codexHistoryViewer.sortHistoryFoldersBy");
 
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders((event) => {
+      statusProvider.refresh();
+      for (const folder of event.added) {
+        void refreshCurrentWorkspaceProjectIdentity(folder);
+        void maybeAutoMigrateAndRefresh(folder.uri.fsPath);
+      }
+    }),
+  );
+
   // Initial load on activation.
   try {
     await vscode.window.withProgress(
@@ -3007,6 +3438,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         await refreshHistoryIndex(false);
       },
     );
+    const workspaceFolder = resolveCurrentWorkspaceFolder();
+    if (workspaceFolder) {
+      await refreshCurrentWorkspaceProjectIdentity(workspaceFolder);
+      await maybeAutoMigrateAndRefresh(workspaceFolder.uri.fsPath);
+    }
   } finally {
     historyProvider.markInitialLoadComplete();
     pinnedProvider.markInitialLoadComplete();
@@ -3351,11 +3787,9 @@ function resolveCurrentProjectFilterCwd(
     const cwdKey = normalizePathForPrefixMatch(cwd);
     if (!cwdKey) continue;
 
-    if (cwdKey === workspaceKey) return cwd;
-    // Prefer history entries executed under the current workspace when available.
-    if (isSameOrDescendantPath(cwdKey, workspaceKey)) return cwd;
+    if (cwdKey === workspaceKey) return workspacePath;
+    if (isSameOrDescendantPath(cwdKey, workspaceKey)) return workspacePath;
 
-    // Only if no direct descendant is found, use the nearest ancestor path candidate.
     if (isSameOrDescendantPath(workspaceKey, cwdKey)) {
       if (!nearestAncestor || cwdKey.length > nearestAncestor.key.length) {
         nearestAncestor = { cwd, key: cwdKey };
@@ -3363,18 +3797,14 @@ function resolveCurrentProjectFilterCwd(
     }
   }
 
-  return nearestAncestor?.cwd ?? workspacePath;
+  return nearestAncestor ? workspacePath : workspacePath;
 }
 
-function normalizePathForPrefixMatch(fsPath: string): string {
-  const normalized = normalizeCacheKey(fsPath).replace(/\\/g, "/");
-  if (normalized === "/") return normalized;
-  if (/^[a-z]:\/$/i.test(normalized)) return normalized;
-  return normalized.replace(/\/+$/g, "");
+function calculateClaudeProjectDirName(fsPath: string): string {
+  return fsPath.replace(/[:/\\ ]/g, "-");
 }
 
-function isSameOrDescendantPath(candidatePath: string, basePath: string): boolean {
-  if (candidatePath === basePath) return true;
-  const base = basePath.endsWith("/") ? basePath : `${basePath}/`;
-  return candidatePath.startsWith(base);
+function escapeRegExp(value: string): string {
+  return value.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
 }
+

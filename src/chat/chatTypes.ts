@@ -7,6 +7,7 @@ export interface ChatSessionMeta {
   id?: string;
   timestampIso?: string;
   cwd?: string;
+  projectId?: string;
   originator?: string;
   cliVersion?: string;
   modelProvider?: string;

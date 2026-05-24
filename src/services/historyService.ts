@@ -17,13 +17,13 @@ interface CacheEntryV1 {
   summary: SessionSummary;
 }
 
-const SUMMARY_CACHE_ALGO_VERSION = 8;
-const HISTORY_CACHE_FILE_NAME = "cache.v8.json";
+const SUMMARY_CACHE_ALGO_VERSION = 9;
+const HISTORY_CACHE_FILE_NAME = "cache.v9.json";
 const HISTORY_CACHE_FILE_PATTERN = /^cache\.v\d+\.json$/i;
 const HISTORY_REFRESH_CONCURRENCY = 4;
 
 interface CacheFileV8 {
-  version: 8;
+  version: 9;
   summaryAlgoVersion: number;
   codexSessionsRoot: string;
   claudeSessionsRoot: string;
@@ -176,7 +176,7 @@ export class HistoryService {
 
     const cachedEntries: Record<string, CacheEntryV1> =
       cache &&
-      cache.version === 8 &&
+      cache.version === 9 &&
       cache.summaryAlgoVersion === SUMMARY_CACHE_ALGO_VERSION &&
       cache.codexSessionsRoot === sessionsRoot &&
       cache.claudeSessionsRoot === claudeSessionsRoot &&
@@ -238,7 +238,7 @@ export class HistoryService {
 
     this.index = buildIndex(sessionsRoot, summaries);
     const nextCache: CacheFileV8 = {
-      version: 8,
+      version: 9,
       summaryAlgoVersion: SUMMARY_CACHE_ALGO_VERSION,
       codexSessionsRoot: sessionsRoot,
       claudeSessionsRoot,

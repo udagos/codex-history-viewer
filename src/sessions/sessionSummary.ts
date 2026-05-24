@@ -40,6 +40,7 @@ export async function tryReadSessionMeta(fsPath: string): Promise<SessionMetaInf
           id: typeof payload.id === "string" ? payload.id : undefined,
           timestampIso: typeof payload.timestamp === "string" ? payload.timestamp : undefined,
           cwd: typeof payload.cwd === "string" ? payload.cwd : undefined,
+          projectId: typeof payload.projectId === "string" ? payload.projectId : undefined,
           originator: typeof payload.originator === "string" ? payload.originator : undefined,
           cliVersion: typeof payload.cli_version === "string" ? payload.cli_version : undefined,
           modelProvider: typeof payload.model_provider === "string" ? payload.model_provider : undefined,
@@ -51,6 +52,7 @@ export async function tryReadSessionMeta(fsPath: string): Promise<SessionMetaInf
       if (!claudeMeta.id && typeof obj?.sessionId === "string") claudeMeta.id = obj.sessionId;
       if (!claudeMeta.timestampIso && typeof obj?.timestamp === "string") claudeMeta.timestampIso = obj.timestamp;
       if (!claudeMeta.cwd && typeof obj?.cwd === "string") claudeMeta.cwd = obj.cwd;
+      if (!claudeMeta.projectId && typeof obj?.projectId === "string") claudeMeta.projectId = obj.projectId;
       if (!claudeMeta.cliVersion && typeof obj?.version === "string") claudeMeta.cliVersion = obj.version;
       if (!claudeMeta.source) claudeMeta.source = "claude-vscode";
 

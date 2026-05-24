@@ -79,6 +79,7 @@ async function readSessionMeta(fsPath: string): Promise<ChatSessionMeta> {
     id: meta.id,
     timestampIso: meta.timestampIso,
     cwd: meta.cwd,
+    projectId: meta.projectId,
     originator: meta.originator,
     cliVersion: meta.cliVersion,
     modelProvider: meta.modelProvider,

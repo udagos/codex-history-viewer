@@ -8,6 +8,7 @@
   "view.control": "管理",
   "view.status": "状態",
   "cmd.category": "Codex History Viewer",
+  "cmd.migrateProjectHistory": "プロジェクト履歴を移行...",
   "cmd.refresh": "全体を再読み込み",
   "cmd.refreshPinned": "ピン留めを再読み込み",
   "cmd.refreshHistoryPane": "履歴を再読み込み",

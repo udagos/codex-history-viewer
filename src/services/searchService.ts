@@ -5,7 +5,7 @@ import { t } from "../i18n";
 import { safeDisplayPath, singleLineSnippet } from "../utils/textUtils";
 import { SearchRootNode, SearchSessionNode, type SearchHit } from "../tree/treeNodes";
 import { getDateScopeValue, sanitizeDateScope, type DateScope } from "../types/dateScope";
-import { normalizeCacheKey } from "../utils/fsUtils";
+import { isSameOrDescendantPath, normalizeCacheKey, normalizePathForPrefixMatch } from "../utils/fsUtils";
 import { type IndexedSearchRole, SearchIndexService } from "./searchIndexService";
 import type { SessionAnnotationStore } from "./sessionAnnotationStore";
 
@@ -52,6 +52,8 @@ export async function runSearchFlow(
   annotationStore: SessionAnnotationStore,
   scope?: DateScope,
   projectCwd?: string | null,
+  currentWorkspacePath?: string | null,
+  currentWorkspaceProjectId?: string | null,
   sourceFilter?: SessionSourceFilter,
   options?: { request?: SearchRequest; defaultRoleFilter?: readonly IndexedSearchRole[]; tagFilter?: readonly string[] },
 ): Promise<SearchFlowResult | null> {
@@ -94,7 +96,7 @@ export async function runSearchFlow(
   const candidates = index.sessions.filter(
     (s) =>
       matchScope(s, effectiveScope) &&
-      matchProject(s, project) &&
+      matchProject(s, project, currentWorkspacePath ?? null, currentWorkspaceProjectId ?? null) &&
       matchSource(s, effectiveSourceFilter) &&
       matchAnnotationTags(s, tagFilter, annotationStore),
   );
@@ -194,11 +196,31 @@ function matchScope(session: SessionSummary, scope: DateScope): boolean {
   }
 }
 
-function matchProject(session: SessionSummary, projectCwd: string | null): boolean {
+function matchProject(
+  session: SessionSummary,
+  projectCwd: string | null,
+  currentWorkspacePath: string | null,
+  currentWorkspaceProjectId: string | null,
+): boolean {
   if (!projectCwd) return true;
+
+  const sessionProjectId = typeof session.meta?.projectId === "string" ? session.meta.projectId.trim() : "";
+  if (
+    currentWorkspaceProjectId &&
+    currentWorkspacePath &&
+    normalizeCacheKey(projectCwd) === normalizeCacheKey(currentWorkspacePath) &&
+    sessionProjectId
+  ) {
+    return sessionProjectId === currentWorkspaceProjectId;
+  }
+
   const cwd = typeof session.meta?.cwd === "string" ? session.meta.cwd.trim() : "";
   if (!cwd) return false;
-  return normalizeCacheKey(cwd) === normalizeCacheKey(projectCwd);
+
+  const projectKey = normalizePathForPrefixMatch(projectCwd);
+  const cwdKey = normalizePathForPrefixMatch(cwd);
+  if (!projectKey || !cwdKey) return normalizeCacheKey(cwd) === normalizeCacheKey(projectCwd);
+  return cwdKey === projectKey || isSameOrDescendantPath(cwdKey, projectKey) || isSameOrDescendantPath(projectKey, cwdKey);
 }
 
 function matchSource(session: SessionSummary, sourceFilter: SessionSourceFilter): boolean {

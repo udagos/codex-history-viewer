@@ -8,6 +8,7 @@ export interface SessionMetaInfo {
   id?: string;
   timestampIso?: string; // session_meta.payload.timestamp (UTC ISO expected)
   cwd?: string;
+  projectId?: string;
   originator?: string;
   cliVersion?: string;
   modelProvider?: string;
